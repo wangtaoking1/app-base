@@ -9,7 +9,7 @@ import (
 func main() {
 	opts := log.NewOptions()
 	opts.AddFlags(pflag.CommandLine)
-	pflag.CommandLine.Set("log.level", "debug") // For test
+	_ = pflag.CommandLine.Set("log.level", "debug") // For test
 	pflag.Parse()
 
 	log.Init(opts)
