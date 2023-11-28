@@ -37,16 +37,26 @@ type formatInfo struct {
 //
 //	%s:    errors for internal read B
 //	%v:    errors for internal read B
-//	%-v:   errors for internal read B - #0 [/home/lk/workspace/golang/src/github.com/marmotedu/iam/main.go:12 (main.main)] (#100102) Internal Server Error
-//	%+v:   errors for internal read B - #0 [/home/lk/workspace/golang/src/github.com/marmotedu/iam/main.go:12 (main.main)] (#100102) Internal Server Error; errors for internal read A - #1 [/home/lk/workspace/golang/src/github.com/marmotedu/iam/main.go:35 (main.newErrorB)] (#100104) Validation failed
+//	%-v:   errors for internal read B - #0 [/home/lk/workspace/golang/src/github.com/marmotedu/iam/main.go:12
+//
+// (main.main)] (#100102) Internal Server Error 	%+v:   errors for internal read B - #0
+// [/home/lk/workspace/golang/src/github.com/marmotedu/iam/main.go:12 (main.main)] (#100102) Internal Server Error;
+// errors for internal read A - #1 [/home/lk/workspace/golang/src/github.com/marmotedu/iam/main.go:35 (main.newErrorB)]
+// (#100104) Validation failed
+//
 //	%#v:   [{"errors":"errors for internal read B"}]
-//	%#-v:  [{"caller":"#0 /home/lk/workspace/golang/src/github.com/marmotedu/iam/main.go:12 (main.main)","errors":"errors for internal read B","message":"(#100102) Internal Server Error"}]
-//	%#+v:  [{"caller":"#0 /home/lk/workspace/golang/src/github.com/marmotedu/iam/main.go:12 (main.main)","errors":"errors for internal read B","message":"(#100102) Internal Server Error"},{"caller":"#1 /home/lk/workspace/golang/src/github.com/marmotedu/iam/main.go:35 (main.newErrorB)","errors":"errors for internal read A","message":"(#100104) Validation failed"}]
+//	%#-v:  [{"caller":"#0 /home/lk/workspace/golang/src/github.com/marmotedu/iam/main.go:12
+//
+// (main.main)","errors":"errors for internal read B","message":"(#100102) Internal Server Error"}] 	%#+v:
+// [{"caller":"#0 /home/lk/workspace/golang/src/github.com/marmotedu/iam/main.go:12 (main.main)","errors":"errors for
+// internal read B","message":"(#100102) Internal Server Error"},{"caller":"#1
+// /home/lk/workspace/golang/src/github.com/marmotedu/iam/main.go:35 (main.newErrorB)","errors":"errors for internal
+// read A","message":"(#100104) Validation failed"}].
 func (w *withCode) Format(state fmt.State, verb rune) {
 	switch verb {
 	case 'v':
 		str := bytes.NewBuffer([]byte{})
-		jsonData := []map[string]interface{}{}
+		var jsonData []map[string]interface{}
 
 		var (
 			flagDetail bool
@@ -70,7 +80,11 @@ func (w *withCode) Format(state fmt.State, verb rune) {
 		length := len(errs)
 		for k, e := range errs {
 			finfo := buildFormatInfo(e)
-			jsonData, str = format(length-k-1, jsonData, str, finfo, sep, flagDetail, flagTrace, modeJSON)
+			if modeJSON {
+				jsonData = formatJSON(length-k-1, jsonData, finfo, flagDetail, flagTrace)
+			} else {
+				str = formatConsole(length-k-1, str, finfo, sep, flagDetail, flagTrace)
+			}
 			sep = "; "
 
 			if !flagTrace {
@@ -83,69 +97,72 @@ func (w *withCode) Format(state fmt.State, verb rune) {
 		}
 		if modeJSON {
 			var byts []byte
-			byts, _ = json.Marshal(jsonData)
+			byts, _ = json.Marshal(jsonData) //nolint:errchkjson
 
 			str.Write(byts)
 		}
-
-		fmt.Fprintf(state, "%s", strings.Trim(str.String(), "\r\n\t"))
+		writeString(state, strings.Trim(str.String(), "\r\n\t"))
 	default:
 		finfo := buildFormatInfo(w)
 		// Externally-safe errors message
-		fmt.Fprintf(state, finfo.message)
+		writeString(state, finfo.message)
 	}
 }
 
-func format(k int, jsonData []map[string]interface{}, str *bytes.Buffer, finfo *formatInfo,
-	sep string, flagDetail, flagTrace, modeJSON bool,
-) ([]map[string]interface{}, *bytes.Buffer) {
-	if modeJSON {
-		data := map[string]interface{}{}
-		if flagDetail || flagTrace {
-			data = map[string]interface{}{
-				"message": finfo.message,
-				"code":    finfo.code,
-				"errors":  finfo.err,
-			}
+func formatJSON(k int, jsonData []map[string]interface{}, finfo *formatInfo,
+	flagDetail, flagTrace bool,
+) []map[string]interface{} {
+	data := map[string]interface{}{}
+	if flagDetail || flagTrace {
+		data = map[string]interface{}{
+			"message": finfo.message,
+			"code":    finfo.code,
+			"errors":  finfo.err,
+		}
 
-			caller := fmt.Sprintf("#%d", k)
-			if finfo.stack != nil {
-				f := Frame((*finfo.stack)[0])
-				caller = fmt.Sprintf("%s %s:%d (%s)",
-					caller,
-					f.file(),
-					f.line(),
-					f.name(),
-				)
-			}
-			data["caller"] = caller
-		} else {
-			data["errors"] = finfo.message
+		caller := fmt.Sprintf("#%d", k)
+		if finfo.stack != nil {
+			f := Frame((*finfo.stack)[0])
+			caller = fmt.Sprintf("%s %s:%d (%s)",
+				caller,
+				f.file(),
+				f.line(),
+				f.name(),
+			)
 		}
-		jsonData = append(jsonData, data)
+		data["caller"] = caller
 	} else {
-		if flagDetail || flagTrace {
-			if finfo.stack != nil {
-				f := Frame((*finfo.stack)[0])
-				fmt.Fprintf(str, "%s%s - #%d [%s:%d (%s)] (%d) %s",
-					sep,
-					finfo.err,
-					k,
-					f.file(),
-					f.line(),
-					f.name(),
-					finfo.code,
-					finfo.message,
-				)
-			} else {
-				fmt.Fprintf(str, "%s%s - #%d %s", sep, finfo.err, k, finfo.message)
-			}
+		data["errors"] = finfo.message
+	}
+	jsonData = append(jsonData, data)
+
+	return jsonData
+}
+
+func formatConsole(k int, str *bytes.Buffer, finfo *formatInfo,
+	sep string, flagDetail, flagTrace bool,
+) *bytes.Buffer {
+	if flagDetail || flagTrace {
+		if finfo.stack != nil {
+			f := Frame((*finfo.stack)[0])
+			writeString(str, fmt.Sprintf("%s%s - #%d [%s:%d (%s)] (%d) %s",
+				sep,
+				finfo.err,
+				k,
+				f.file(),
+				f.line(),
+				f.name(),
+				finfo.code,
+				finfo.message,
+			))
 		} else {
-			fmt.Fprintf(str, finfo.message)
+			writeString(str, fmt.Sprintf("%s%s - #%d %s", sep, finfo.err, k, finfo.message))
 		}
+	} else {
+		writeString(str, finfo.message)
 	}
 
-	return jsonData, str
+	return str
 }
 
 // list will convert the errors stack into a simple array.

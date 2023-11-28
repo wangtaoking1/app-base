@@ -133,8 +133,10 @@ func (f *fundamental) Format(s fmt.State, verb rune) {
 		if s.Flag('+') {
 			writeString(s, f.msg)
 			f.stack.Format(s, verb)
+
 			return
 		}
+
 		fallthrough
 	case 's':
 		writeString(s, f.msg)
@@ -187,8 +189,10 @@ func (w *withStack) Format(s fmt.State, verb rune) {
 		if s.Flag('+') {
 			writeString(s, fmt.Sprintf("%+v", w.Cause()))
 			w.stack.Format(s, verb)
+
 			return
 		}
+
 		fallthrough
 	case 's':
 		writeString(s, w.Error())
@@ -217,6 +221,7 @@ func Wrap(err error, message string) error {
 		cause: err,
 		msg:   message,
 	}
+
 	return &withStack{
 		err,
 		callers(),
@@ -244,6 +249,7 @@ func Wrapf(err error, format string, args ...interface{}) error {
 		cause: err,
 		msg:   fmt.Sprintf(format, args...),
 	}
+
 	return &withStack{
 		err,
 		callers(),
@@ -256,6 +262,7 @@ func WithMessage(err error, message string) error {
 	if err == nil {
 		return nil
 	}
+
 	return &withMessage{
 		cause: err,
 		msg:   message,
@@ -268,6 +275,7 @@ func WithMessagef(err error, format string, args ...interface{}) error {
 	if err == nil {
 		return nil
 	}
+
 	return &withMessage{
 		cause: err,
 		msg:   fmt.Sprintf(format, args...),
@@ -291,8 +299,10 @@ func (w *withMessage) Format(s fmt.State, verb rune) {
 		if s.Flag('+') {
 			fmt.Fprintf(s, "%+v\n", w.Cause())
 			writeString(s, w.msg)
+
 			return
 		}
+
 		fallthrough
 	case 's', 'q':
 		writeString(s, w.Error())
@@ -364,5 +374,6 @@ func Cause(err error) error {
 
 		err = cause.Cause()
 	}
+
 	return err
 }

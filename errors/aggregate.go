@@ -42,6 +42,7 @@ func NewAggregate(errlist []error) Aggregate {
 	if len(errs) == 0 {
 		return nil
 	}
+
 	return aggregate(errs)
 }
 
@@ -71,11 +72,13 @@ func (agg aggregate) Error() string {
 			result += ", "
 		}
 		result += msg
+
 		return false
 	})
 	if seenerrs.Size() == 1 {
 		return result
 	}
+
 	return "[" + result + "]"
 }
 
@@ -133,6 +136,7 @@ func FilterOut(err error, fns ...Matcher) error {
 	if !matchesError(err, fns...) {
 		return err
 	}
+
 	return nil
 }
 
@@ -143,6 +147,7 @@ func matchesError(err error, fns ...Matcher) bool {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -158,6 +163,7 @@ func filterErrors(list []error, fns ...Matcher) []error {
 			result = append(result, r)
 		}
 	}
+
 	return result
 }
 
@@ -180,6 +186,7 @@ func Flatten(agg Aggregate) Aggregate {
 			}
 		}
 	}
+
 	return NewAggregate(result)
 }
 
@@ -199,6 +206,7 @@ func CreateAggregateFromMessageCountMap(m MessageCountMap) Aggregate {
 		}
 		result = append(result, fmt.Errorf("%v%v", errStr, countStr))
 	}
+
 	return NewAggregate(result)
 }
 
@@ -213,6 +221,7 @@ func Reduce(err error) error {
 			return nil
 		}
 	}
+
 	return err
 }
 
@@ -230,6 +239,7 @@ func AggregateGoroutines(funcs ...func() error) Aggregate {
 			errs = append(errs, err)
 		}
 	}
+
 	return NewAggregate(errs)
 }
 

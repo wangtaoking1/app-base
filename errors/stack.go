@@ -13,6 +13,10 @@ import (
 	"strings"
 )
 
+const (
+	unknown = "unknown"
+)
+
 // Frame represents a program counter inside a stack frame.
 // For historical reasons if Frame is interpreted as a uintptr
 // its value represents the program counter + 1.
@@ -27,9 +31,10 @@ func (f Frame) pc() uintptr { return uintptr(f) - 1 }
 func (f Frame) file() string {
 	fn := runtime.FuncForPC(f.pc())
 	if fn == nil {
-		return "unknown"
+		return unknown
 	}
 	file, _ := fn.FileLine(f.pc())
+
 	return file
 }
 
@@ -41,6 +46,7 @@ func (f Frame) line() int {
 		return 0
 	}
 	_, line := fn.FileLine(f.pc())
+
 	return line
 }
 
@@ -48,8 +54,9 @@ func (f Frame) line() int {
 func (f Frame) name() string {
 	fn := runtime.FuncForPC(f.pc())
 	if fn == nil {
-		return "unknown"
+		return unknown
 	}
+
 	return fn.Name()
 }
 
@@ -91,9 +98,10 @@ func (f Frame) Format(s fmt.State, verb rune) {
 // same as that of fmt.Sprintf("%+v", f), but without newlines or tabs.
 func (f Frame) MarshalText() ([]byte, error) {
 	name := f.name()
-	if name == "unknown" {
+	if name == unknown {
 		return []byte(name), nil
 	}
+
 	return []byte(fmt.Sprintf("%s %s:%d", name, f.file(), f.line())), nil
 }
 
@@ -161,6 +169,7 @@ func (s *stack) StackTrace() StackTrace {
 	for i := 0; i < len(f); i++ {
 		f[i] = Frame((*s)[i])
 	}
+
 	return f
 }
 
@@ -169,6 +178,7 @@ func callers() *stack {
 	var pcs [depth]uintptr
 	n := runtime.Callers(3, pcs[:])
 	var st stack = pcs[0:n]
+
 	return &st
 }
 
@@ -177,9 +187,10 @@ func funcname(name string) string {
 	i := strings.LastIndex(name, "/")
 	name = name[i+1:]
 	i = strings.Index(name, ".")
+
 	return name[i+1:]
 }
 
 func writeString(w io.Writer, s string) {
-	io.WriteString(w, s) //nolint
+	io.WriteString(w, s) //nolint:errcheck
 }

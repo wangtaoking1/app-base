@@ -10,7 +10,12 @@ import (
 	"sync"
 )
 
-var unknownCoder = defaultCoder{1, http.StatusInternalServerError, "An internal server error occurred", "http://github.com/wangtaoking1/app-base/errors/README.md"}
+var unknownCoder = defaultCoder{
+	1,
+	http.StatusInternalServerError,
+	"An internal server error occurred",
+	"http://github.com/wangtaoking1/app-base/errors/README.md",
+}
 
 // Coder defines an interface for an error code detail information.
 type Coder interface {

@@ -26,6 +26,7 @@ func New[T cmp.Ordered]() Heap[T] {
 	less := func(e1, e2 T) bool {
 		return cmp.Less(e1, e2)
 	}
+
 	return &heap[T]{
 		s: newHeapSlice[T](less),
 	}
@@ -36,6 +37,7 @@ func NewWithLess[T any](less func(e1, e2 T) bool) Heap[T] {
 	if less == nil {
 		return nil
 	}
+
 	return &heap[T]{
 		s: newHeapSlice[T](less),
 	}
@@ -89,5 +91,6 @@ func (hs *internalHeap[T]) Pop() any {
 	n := len(hs.s)
 	item := hs.s[n-1]
 	hs.s = hs.s[:n-1]
+
 	return item
 }

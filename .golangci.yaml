@@ -1,4 +1,4 @@
-# Copyright 2020 Lingfei Kong <colin404@foxmail.com>. All rights reserved.
+# Copyright 2023 Tao Wang <wangtaoking1@qq.com>. All rights reserved.
 # Use of this source code is governed by a MIT style
 # license that can be found in the LICENSE file.
 
@@ -91,6 +91,8 @@ linters-settings:
   dupl:
     # tokens count to trigger issue, 150 by default
     threshold: 100
+  errchkjson:
+    check-error-free-encoding: true
   errcheck:
     # report about not checking of errors in type assertions: `a := b.(MyStruct)`;
     # default is false: such cases aren't reported by default.
@@ -109,6 +111,9 @@ linters-settings:
     # path to a file containing a list of functions to exclude from checking
     # see https://github.com/kisielk/errcheck#excluding-functions for details
     #exclude: errcheck.txt
+    exclude-functions:
+      - encoding/json.Marshal
+      - encoding/json.MarshalIndent
   exhaustive:
     # check switch statements in generated files also
     check-generated: false
@@ -451,6 +456,7 @@ linters-settings:
   errorlint:
     # Report non-wrapping error creation using fmt.Errorf
     errorf: true
+    asserts: false
   makezero:
     # Allow only slices initialized with a length of zero. Default is false.
     always: false
@@ -491,19 +497,14 @@ linters:
   enable:
     - megacheck
     - bodyclose
-    - deadcode
-    - depguard
     - dogsled
     - dupl
     - errcheck
     - funlen
-    - gochecknoinits
     - goconst
-      #- gocritic
     - gocyclo
     - gofmt
     - goimports
-    - golint
     - importas
     - wastedassign
     - nilerr
@@ -517,15 +518,12 @@ linters:
     - nakedret
     - nolintlint
     - rowserrcheck
-    - scopelint
     - staticcheck
-    - structcheck
     - stylecheck
     - typecheck
     - unconvert
     - unparam
     - unused
-    - varcheck
     - whitespace
     - asciicheck
     - gocognit
@@ -536,7 +534,6 @@ linters:
     - gomodguard
     - exhaustive
     - revive
-    - ifshort
     - forbidigo
     - makezero
     - thelper
@@ -544,19 +541,21 @@ linters:
     - cyclop
     - durationcheck
     - paralleltest
-    - errorlint
-    - exhaustivestruct
     - exportloopref
     - gci
     - gofumpt
     - goheader
     - vetshadow
-    - nlreturn
     - noctx
     - sqlclosecheck
     - tparallel
+    - errorlint
+    - nlreturn
 
   # don't enable:
+    #- gochecknoinits
+    #- exhaustruct
+    #- depguard
     #- wrapcheck
     #- forcetypeassert
     #- goerr113

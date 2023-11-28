@@ -62,6 +62,7 @@ func (s *set[E]) Empty() bool {
 
 func (s *set[E]) Contains(elem E) bool {
 	_, ok := s.d[elem]
+
 	return ok
 }
 
@@ -70,6 +71,7 @@ func (s *set[E]) Values() []E {
 	for elem := range s.d {
 		values = append(values, elem)
 	}
+
 	return values
 }
 
@@ -85,5 +87,6 @@ func New[E comparable](elems ...E) Set[E] {
 	for _, elem := range elems {
 		s.d[elem] = empty
 	}
+
 	return s
 }
