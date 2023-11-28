@@ -1,3 +1,7 @@
+// Copyright 2023 Tao Wang <wangtaoking1@qq.com>. All rights reserved.
+// Use of this source code is governed by a MIT style
+// license that can be found in the LICENSE file.
+
 package heap
 
 import (
@@ -68,15 +72,19 @@ func newHeapSlice[T any](lessFn func(e1, e2 T) bool) *internalHeap[T] {
 func (hs *internalHeap[T]) Len() int {
 	return len(hs.s)
 }
+
 func (hs *internalHeap[T]) Less(i, j int) bool {
 	return hs.lessFn(hs.s[i], hs.s[j])
 }
+
 func (hs *internalHeap[T]) Swap(i, j int) {
 	hs.s[i], hs.s[j] = hs.s[j], hs.s[i]
 }
+
 func (hs *internalHeap[T]) Push(item any) {
 	hs.s = append(hs.s, item.(T))
 }
+
 func (hs *internalHeap[T]) Pop() any {
 	n := len(hs.s)
 	item := hs.s[n-1]

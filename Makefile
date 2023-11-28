@@ -55,7 +55,7 @@ endif
 .PHONY: verify-copyright
 verify-copyright: copyright.verify
 	@echo "===========> Verifying the boilerplate headers for all files"
-	@addlicense --check -f $(ROOT_DIR)/boilerplate.txt $(ROOT_DIR) --skip-dirs=third_party
+	@addlicense --check -f $(ROOT_DIR)/boilerplate.txt $(ROOT_DIR) --skip-dirs=third_party,idea
 
 ## add-copyright: Ensures source code files have copyright license headers.
 .PHONY: add-copyright

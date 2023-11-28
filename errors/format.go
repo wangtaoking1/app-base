@@ -1,3 +1,7 @@
+// Copyright 2023 Tao Wang <wangtaoking1@qq.com>. All rights reserved.
+// Use of this source code is governed by a MIT style
+// license that can be found in the LICENSE file.
+
 package errors
 
 import (
@@ -93,7 +97,8 @@ func (w *withCode) Format(state fmt.State, verb rune) {
 }
 
 func format(k int, jsonData []map[string]interface{}, str *bytes.Buffer, finfo *formatInfo,
-	sep string, flagDetail, flagTrace, modeJSON bool) ([]map[string]interface{}, *bytes.Buffer) {
+	sep string, flagDetail, flagTrace, modeJSON bool,
+) ([]map[string]interface{}, *bytes.Buffer) {
 	if modeJSON {
 		data := map[string]interface{}{}
 		if flagDetail || flagTrace {
@@ -135,7 +140,6 @@ func format(k int, jsonData []map[string]interface{}, str *bytes.Buffer, finfo *
 			} else {
 				fmt.Fprintf(str, "%s%s - #%d %s", sep, finfo.err, k, finfo.message)
 			}
-
 		} else {
 			fmt.Fprintf(str, finfo.message)
 		}

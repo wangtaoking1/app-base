@@ -1,3 +1,7 @@
+// Copyright 2023 Tao Wang <wangtaoking1@qq.com>. All rights reserved.
+// Use of this source code is governed by a MIT style
+// license that can be found in the LICENSE file.
+
 package errors
 
 import (
@@ -6,9 +10,7 @@ import (
 	"sync"
 )
 
-var (
-	unknownCoder = defaultCoder{1, http.StatusInternalServerError, "An internal server error occurred", "http://github.com/wangtaoking1/app-base/errors/README.md"}
-)
+var unknownCoder = defaultCoder{1, http.StatusInternalServerError, "An internal server error occurred", "http://github.com/wangtaoking1/app-base/errors/README.md"}
 
 // Coder defines an interface for an error code detail information.
 type Coder interface {
@@ -42,7 +44,6 @@ type defaultCoder struct {
 // Code returns the integer code of the coder.
 func (coder defaultCoder) Code() int {
 	return coder.C
-
 }
 
 // String implements stringer. String returns the external error message,
@@ -67,8 +68,10 @@ func (coder defaultCoder) Reference() string {
 }
 
 // codes contains a map of error codes to metadata.
-var codes = map[int]Coder{}
-var codeMux = sync.Mutex{}
+var (
+	codes   = map[int]Coder{}
+	codeMux = sync.Mutex{}
+)
 
 // Register registers a user define error code.
 // It will overrid the exist code.

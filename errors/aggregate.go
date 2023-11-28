@@ -1,3 +1,7 @@
+// Copyright 2023 Tao Wang <wangtaoking1@qq.com>. All rights reserved.
+// Use of this source code is governed by a MIT style
+// license that can be found in the LICENSE file.
+
 package errors
 
 import (
@@ -132,7 +136,7 @@ func FilterOut(err error, fns ...Matcher) error {
 	return nil
 }
 
-// matchesError returns true if any Matcher returns true
+// matchesError returns true if any Matcher returns true.
 func matchesError(err error, fns ...Matcher) bool {
 	for _, fn := range fns {
 		if fn(err) {
@@ -182,7 +186,7 @@ func Flatten(agg Aggregate) Aggregate {
 // MessageCountMap contains occurrence for each error message.
 type MessageCountMap map[string]int
 
-// CreateAggregateFromMessageCountMap converts MessageCountMap Aggregate
+// CreateAggregateFromMessageCountMap converts MessageCountMap Aggregate.
 func CreateAggregateFromMessageCountMap(m MessageCountMap) Aggregate {
 	if m == nil {
 		return nil
@@ -229,5 +233,5 @@ func AggregateGoroutines(funcs ...func() error) Aggregate {
 	return NewAggregate(errs)
 }
 
-// ErrPreconditionViolated is returned when the precondition is violated
+// ErrPreconditionViolated is returned when the precondition is violated.
 var ErrPreconditionViolated = errors.New("precondition is violated")

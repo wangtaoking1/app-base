@@ -1,3 +1,7 @@
+// Copyright 2023 Tao Wang <wangtaoking1@qq.com>. All rights reserved.
+// Use of this source code is governed by a MIT style
+// license that can be found in the LICENSE file.
+
 // Package errors provides simple errors handling primitives.
 //
 // The traditional errors handling idiom in Go is roughly akin to
