@@ -76,8 +76,13 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 	fs.BoolVar(&o.DisableCaller, flagDisableCaller, o.DisableCaller, "Disable output of caller information in the log.")
 	fs.BoolVar(&o.DisableStacktrace, flagDisableStacktrace,
 		o.DisableStacktrace, "Disable the log to record a stack trace for all messages at or above panic level.")
-	fs.StringVar(&o.Format, flagFormat, o.Format, "Log output `FORMAT`, support plain or json format.")
-	fs.BoolVar(&o.EnableColor, flagEnableColor, o.EnableColor, "Enable output ansi colors in plain format logs.")
+	fs.StringVar(&o.Format, flagFormat, o.Format, "Log output `FORMAT`, support console or json format.")
+	fs.BoolVar(
+		&o.EnableColor,
+		flagEnableColor,
+		o.EnableColor,
+		"Enable output ansi colors in console plain format logs.",
+	)
 	fs.StringSliceVar(&o.OutputPaths, flagOutputPaths, o.OutputPaths, "Output paths of log.")
 	fs.StringSliceVar(&o.ErrorOutputPaths, flagErrorOutputPaths, o.ErrorOutputPaths, "Error output paths of log.")
 	fs.StringVar(&o.Name, flagName, o.Name, "The name of the logger.")

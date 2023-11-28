@@ -534,7 +534,6 @@ linters:
     - gomodguard
     - exhaustive
     - revive
-    - forbidigo
     - makezero
     - thelper
     - predeclared
@@ -553,6 +552,7 @@ linters:
     - nlreturn
 
   # don't enable:
+    #- forbidigo
     #- gochecknoinits
     #- exhaustruct
     #- depguard
