@@ -13,11 +13,10 @@ import (
 
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
-	ginprometheus "github.com/zsais/go-gin-prometheus"
-	"golang.org/x/sync/errgroup"
-
 	"github.com/wangtaoking1/app-base/log"
 	"github.com/wangtaoking1/app-base/server/middleware"
+	ginprometheus "github.com/zsais/go-gin-prometheus"
+	"golang.org/x/sync/errgroup"
 )
 
 // APIServer is the interface of the api server.
@@ -120,7 +119,7 @@ func (s *apiServer) Run() error {
 		Handler: s,
 	}
 	eg.Go(func() error {
-		log.Infof("Start to listening the incoming requests on http address: %s", s.options.HTTP.Address())
+		log.Infof("Start to listening on http server: %s", s.options.HTTP.Address())
 
 		if err := s.httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Fatal(err.Error())
@@ -144,7 +143,7 @@ func (s *apiServer) Run() error {
 				return nil
 			}
 
-			log.Infof("Start to listening the incoming requests on https address: %s", s.options.HTTPS.Address())
+			log.Infof("Start to listening on https server: %s", s.options.HTTPS.Address())
 
 			if err := s.httpsServer.ListenAndServeTLS(cert, key); err != nil && !errors.Is(err, http.ErrServerClosed) {
 				log.Fatal(err.Error())
@@ -179,13 +178,15 @@ func (s *apiServer) Close() {
 
 	if s.httpServer != nil {
 		if err := s.httpServer.Shutdown(ctx); err != nil {
-			log.Warnf("Shutdown http server failed: %s", err.Error())
+			log.Warnf("Failed to shutdown http server: %s", err.Error())
 		}
+		log.Infof("HTTP server on %s stopped", s.options.HTTP.Address())
 	}
 
 	if s.httpsServer != nil {
 		if err := s.httpsServer.Shutdown(ctx); err != nil {
-			log.Warnf("Shutdown https server failed: %s", err.Error())
+			log.Warnf("Failed to shutdown https server: %s", err.Error())
 		}
+		log.Infof("HTTPS server on %s stopped", s.options.HTTPS.Address())
 	}
 }

@@ -115,6 +115,7 @@ type HTTPSOptions struct {
 	TLS         TLSOptions `json:"tls"          mapstructure:"tls"`
 }
 
+// TLSOptions contains configuration for TLS.
 type TLSOptions struct {
 	// CertFile is a file containing a PEM-encoded certificate, and possibly the complete certificate chain
 	CertFile string `json:"cert-file"        mapstructure:"cert-file"`
