@@ -130,11 +130,8 @@ linters-settings:
   funlen:
     lines: 150
     statements: 50
-  gci:
-    # put imports beginning with prefix after 3rd-party packages;
-    # only support one prefix
-    # if not set, use goimports.local-prefixes
-    local-prefixes: github.com/xxx/xxx
+  importordering:
+    enabled: false
   gocognit:
     # minimal code complexity to report, 30 by default (but we recommend 10-20)
     min-complexity: 50
@@ -272,7 +269,7 @@ linters-settings:
   goimports:
     # put imports beginning with prefix after 3rd-party packages;
     # it's a comma-separated list of prefixes
-    local-prefixes: github.com/xxx/xxx
+    local-prefixes: github.com/wangtaoking1
   golint:
     # minimal confidence for issues, default is 0.8
     min-confidence: 0.9
@@ -290,6 +287,7 @@ linters-settings:
         - gorm.io/gorm
         - gorm.io/driver/mysql
         - k8s.io/klog
+        - go.etcd.io/etcd/client/v3
         # - gopkg.in/yaml.v2
       domains:                                                        # List of allowed module domains
         - google.golang.org
@@ -541,7 +539,6 @@ linters:
     - durationcheck
     - paralleltest
     - exportloopref
-    - gci
     - gofumpt
     - goheader
     - vetshadow
@@ -552,6 +549,7 @@ linters:
     - nlreturn
 
   # don't enable:
+    #- gci
     #- forbidigo
     #- gochecknoinits
     #- exhaustruct
