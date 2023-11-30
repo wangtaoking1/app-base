@@ -13,10 +13,11 @@ import (
 
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
-	"github.com/wangtaoking1/app-base/log"
-	"github.com/wangtaoking1/app-base/server/middleware"
 	ginprometheus "github.com/zsais/go-gin-prometheus"
 	"golang.org/x/sync/errgroup"
+
+	"github.com/wangtaoking1/app-base/log"
+	"github.com/wangtaoking1/app-base/server/middleware"
 )
 
 // APIServer is the interface of the api server.

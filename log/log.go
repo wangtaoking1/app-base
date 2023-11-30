@@ -5,6 +5,7 @@
 package log
 
 import (
+	"log"
 	"sync"
 
 	"go.uber.org/zap"
@@ -12,7 +13,7 @@ import (
 )
 
 var (
-	std = newWithOptions(NewOptions())
+	std = newZapLogger(NewOptions())
 	mu  sync.Mutex
 )
 
@@ -21,15 +22,15 @@ func Init(opts *Options) {
 	mu.Lock()
 	defer mu.Unlock()
 
-	std = newWithOptions(opts)
+	std = newZapLogger(opts)
 }
 
 // New creates logger by opts which can custmoized by command arguments.
 func New(opts *Options) Logger {
-	return newWithOptions(opts)
+	return newZapLogger(opts)
 }
 
-func newWithOptions(opts *Options) *zapLogger {
+func newZapLogger(opts *Options) *zapLogger {
 	if opts == nil {
 		opts = NewOptions()
 	}
@@ -152,4 +153,17 @@ func Fatal(msg string, keysAndValues ...interface{}) {
 // Fatalf method output fatal level log.
 func Fatalf(format string, v ...interface{}) {
 	std.zapLogger.Sugar().Fatalf(format, v...)
+}
+
+// StdLogger returns logger of standard library which writes to supplied zap
+// logger at specified level.
+func StdLogger(level Level) *log.Logger {
+	if std == nil {
+		return nil
+	}
+	if l, err := zap.NewStdLogAt(std.zapLogger, level); err == nil {
+		return l
+	}
+
+	return nil
 }

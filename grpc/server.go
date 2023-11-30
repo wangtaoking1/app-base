@@ -7,10 +7,11 @@ package grpc
 import (
 	"net"
 
-	"github.com/wangtaoking1/app-base/log"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/reflection"
+
+	"github.com/wangtaoking1/app-base/log"
 )
 
 // Server is the interface of grpc server.
