@@ -214,7 +214,6 @@ func buildFormatInfo(e error) *formatInfo {
 			code:    coder.Code(),
 			message: extMsg,
 			err:     err.err.Error(),
-			stack:   err.stack,
 		}
 	default:
 		finfo = &formatInfo{

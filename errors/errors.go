@@ -157,7 +157,6 @@ func WithStack(err error) error {
 			err:   e.err,
 			code:  e.code,
 			cause: err,
-			stack: callers(),
 		}
 	}
 
@@ -213,7 +212,6 @@ func Wrap(err error, message string) error {
 			err:   fmt.Errorf(message),
 			code:  e.code,
 			cause: err,
-			stack: callers(),
 		}
 	}
 
@@ -241,7 +239,6 @@ func Wrapf(err error, format string, args ...interface{}) error {
 			err:   fmt.Errorf(format, args...),
 			code:  e.code,
 			cause: err,
-			stack: callers(),
 		}
 	}
 
@@ -313,14 +310,12 @@ type withCode struct {
 	err   error
 	code  int
 	cause error
-	*stack
 }
 
 func WithCode(code int, format string, args ...interface{}) error {
 	return &withCode{
-		err:   fmt.Errorf(format, args...),
-		code:  code,
-		stack: callers(),
+		err:  fmt.Errorf(format, args...),
+		code: code,
 	}
 }
 
@@ -333,7 +328,6 @@ func WrapC(err error, code int, format string, args ...interface{}) error {
 		err:   fmt.Errorf(format, args...),
 		code:  code,
 		cause: err,
-		stack: callers(),
 	}
 }
 
