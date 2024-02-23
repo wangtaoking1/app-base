@@ -14,7 +14,7 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 
-	"github.com/wangtaoking1/app-base/utils/homedir"
+	"github.com/wangtaoking1/go-common/homedir"
 )
 
 const configFlagName = "config"

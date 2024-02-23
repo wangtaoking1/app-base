@@ -8,7 +8,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/wangtaoking1/app-base/container/set"
+	"github.com/wangtaoking1/go-common/container/set"
 )
 
 // Aggregate represents an object that contains multiple errors, but does not

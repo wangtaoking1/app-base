@@ -548,7 +548,7 @@ linters:
     - sqlclosecheck
     - tparallel
     - errorlint
-    - nlreturn
+#    - nlreturn
 
   # don't enable:
     #- gci

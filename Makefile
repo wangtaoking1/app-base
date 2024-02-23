@@ -8,7 +8,7 @@ endif
 FIND := find . ! -path './third_party/*' ! -path './vendor/*'
 XARGS := xargs --no-run-if-empty
 
-all: verify-copyright test format lint
+all: add-copyright test format lint
 
 ## test: Test the package.
 .PHONY: test

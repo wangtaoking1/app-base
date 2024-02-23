@@ -16,7 +16,7 @@ import (
 
 	"github.com/wangtaoking1/app-base/errors"
 	"github.com/wangtaoking1/app-base/log"
-	"github.com/wangtaoking1/app-base/utils/retry"
+	"github.com/wangtaoking1/go-common/retry"
 )
 
 var defaultRetryInterval = 1 * time.Second
@@ -131,10 +131,10 @@ func (s *store) onKeepaliveFailure() {
 	}
 
 	log.Error("Keep alive etcd session error, try restart...")
-	err := retry.RetryWithTimeout(context.TODO(), defaultRetryInterval, 3*defaultRetryInterval, func() error {
+	err := retry.WithTimeout(context.TODO(), defaultRetryInterval, 3*defaultRetryInterval, func() error {
 		e := s.startSession()
 		if e != nil {
-			return errors.Wrapf(retry.RetryableErr, "restart session error: %v", e)
+			return errors.Wrapf(retry.ErrRetryable, "restart session error: %v", e)
 		}
 
 		return nil
