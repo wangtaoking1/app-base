@@ -14,9 +14,10 @@ import (
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"google.golang.org/grpc"
 
+	"github.com/wangtaoking1/go-common/retry"
+
 	"github.com/wangtaoking1/app-base/errors"
 	"github.com/wangtaoking1/app-base/log"
-	"github.com/wangtaoking1/go-common/retry"
 )
 
 var defaultRetryInterval = 1 * time.Second

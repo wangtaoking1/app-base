@@ -1,5 +1,4 @@
 GO := go
-ROOT_PACKAGE := github.com/wangtaoking1/app-base
 ifeq ($(origin ROOT_DIR),undefined)
 ROOT_DIR := $(shell pwd)
 endif
@@ -14,13 +13,13 @@ all: add-copyright test format lint
 .PHONY: test
 test:
 	@echo "===========> Testing packages"
-	@$(GO) test $(ROOT_PACKAGE)/...
+	@$(GO) test ./...
 
 .PHONY: golines.verify
 golines.verify:
 ifeq (,$(shell which golines 2>/dev/null))
 	@echo "===========> Installing golines"
-	@$(GO) get -u github.com/segmentio/golines
+	@$(GO) install github.com/segmentio/golines@latest
 endif
 
 ## format: Format the package with `gofmt`
@@ -28,14 +27,14 @@ endif
 format: golines.verify
 	@echo "===========> Formating codes"
 	 @$(FIND) -type f -name '*.go' | $(XARGS) gofmt -s -w
-	 @$(FIND) -type f -name '*.go' | $(XARGS) goimports -w -local $(ROOT_PACKAGE)
+	 @$(FIND) -type f -name '*.go' | $(XARGS) goimports -w
 	 @$(FIND) -type f -name '*.go' | $(XARGS) golines -w --max-len=120 --reformat-tags --shorten-comments --ignore-generated .
 
 .PHONY: lint.verify
 lint.verify:
 ifeq (,$(shell which golangci-lint 2>/dev/null))
 	@echo "===========> Installing golangci lint"
-	@GO111MODULE=off $(GO) get -u github.com/golangci/golangci-lint/cmd/golangci-lint
+	@GO111MODULE=off $(GO) install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 endif
 
 ## lint: Check syntax and styling of go sources.
@@ -48,7 +47,7 @@ lint: lint.verify
 copyright.verify:
 ifeq (,$(shell which addlicense 2>/dev/null))
 	@echo "===========> Installing addlicense"
-	@$(GO) get -u github.com/marmotedu/addlicense
+	@$(GO) install github.com/marmotedu/addlicense@latest
 endif
 
 ## verify-copyright: Verify the boilerplate headers for all files.
@@ -66,7 +65,7 @@ add-copyright: copyright.verify
 updates.verify:
 ifeq (,$(shell which go-mod-outdated 2>/dev/null))
 	@echo "===========> Installing go-mod-outdated"
-	@$(GO) get -u github.com/psampaz/go-mod-outdated
+	@$(GO) install github.com/psampaz/go-mod-outdated@latest
 endif
 
 ## check-updates: Check outdated dependencies of the go projects.
