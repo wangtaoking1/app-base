@@ -1,4 +1,4 @@
-// Copyright 2023 Tao Wang <wangtaoking1@qq.com>. All rights reserved.
+// Copyright 2024 Tao Wang <wangtaoking1@qq.com>. All rights reserved.
 // Use of this source code is governed by a MIT style
 // license that can be found in the LICENSE file.
 
@@ -6,11 +6,11 @@ package kafka
 
 import (
 	"context"
+	"errors"
 	"strings"
 
 	"github.com/segmentio/kafka-go"
 
-	"github.com/wangtaoking1/app-base/errors"
 	"github.com/wangtaoking1/app-base/kafka/auth"
 	"github.com/wangtaoking1/app-base/log"
 )
@@ -89,9 +89,7 @@ func NewProducerWithOptions(brokers string, topic string, opts *ProducerOptions)
 		options: opts,
 	}
 
-	if opts.AuthType == auth.AuthTypeRaw {
-		p.author = auth.NewRawAuthenticator()
-	}
+	p.author = auth.NewRawAuthenticator()
 	p.writer = &kafka.Writer{
 		Transport:    p.author.GetTransport(""),
 		Addr:         kafka.TCP(strings.Split(brokers, ",")...),

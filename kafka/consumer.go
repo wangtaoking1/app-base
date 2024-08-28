@@ -1,4 +1,4 @@
-// Copyright 2023 Tao Wang <wangtaoking1@qq.com>. All rights reserved.
+// Copyright 2024 Tao Wang <wangtaoking1@qq.com>. All rights reserved.
 // Use of this source code is governed by a MIT style
 // license that can be found in the LICENSE file.
 
@@ -7,19 +7,16 @@ package kafka
 import (
 	"context"
 	"errors"
-	"math/rand"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	"github.com/wangtaoking1/app-base/utils"
-
-	"github.com/panjf2000/ants/v2"
 	"github.com/segmentio/kafka-go"
 
 	"github.com/wangtaoking1/app-base/kafka/auth"
 	"github.com/wangtaoking1/app-base/log"
+	"github.com/wangtaoking1/app-base/utils"
 )
 
 const (
@@ -54,11 +51,8 @@ type ConsumerOptions struct {
 	// ParalSize is the number of parallel workers to consume messages.
 	// Default: 5
 	ParalSize int
-	// BatchSize is the number of messages to consume in one batch.
-	// Default: 50
-	BatchSize int
 	// CacheSize is the size of cache queue.
-	// Default: 200
+	// Default: 100
 	CacheSize int
 	// FetchMinBytes is the minimum number of bytes to fetch in one batch from brokers.
 	// Default: 10KB
@@ -82,11 +76,8 @@ func (o *ConsumerOptions) SetDefaults() error {
 	if o.ParalSize == 0 {
 		o.ParalSize = 5
 	}
-	if o.BatchSize == 0 {
-		o.BatchSize = 50
-	}
 	if o.CacheSize == 0 {
-		o.CacheSize = 200
+		o.CacheSize = 100
 	}
 	if o.FetchMinBytes == 0 {
 		o.FetchMinBytes = 1024 * 10 // 10KB
@@ -115,11 +106,9 @@ type consumer struct {
 
 	reader *kafka.Reader
 
-	author  auth.Authenticator
-	running *atomic.Bool
-	pool    *ants.Pool
-	q       chan kafka.Message
-	random  *rand.Rand
+	author       auth.Authenticator
+	running      *atomic.Bool
+	consumeQueue ConsumeQueue
 }
 
 // NewConsumer creates a new consumer with default options.
@@ -145,7 +134,6 @@ func NewConsumerWithOptions(
 		handler: handler,
 
 		running: &atomic.Bool{},
-		random:  rand.New(rand.NewSource(time.Now().UnixNano())), //nolint:gosec
 	}
 
 	if opts.AuthType == auth.AuthTypeRaw {
@@ -162,12 +150,11 @@ func NewConsumerWithOptions(
 		MaxWait:     c.options.FetchMaxWait,
 		StartOffset: c.options.StartOffset,
 	})
-	var err error
-	c.pool, err = ants.NewPool(c.options.ParalSize)
-	if err != nil {
-		return nil, err
+	if opts.OrderedMode {
+		c.consumeQueue = newOrderedQueue(opts.CacheSize, opts.ParalSize, c.handleMessage, c.commitOffset)
+	} else {
+		c.consumeQueue = newUnorderedQueue(opts.CacheSize, opts.ParalSize, c.handleMessage, c.commitOffset)
 	}
-	c.q = make(chan kafka.Message, c.options.CacheSize)
 
 	return c, nil
 }
@@ -183,7 +170,7 @@ func (c *consumer) Run(ctx context.Context) {
 	}()
 	go func() {
 		defer wg.Done()
-		c.dispatch(ctx)
+		c.consumeQueue.Run(ctx)
 	}()
 
 	<-ctx.Done()
@@ -196,9 +183,6 @@ func (c *consumer) close() {
 	if err := c.reader.Close(); err != nil {
 		log.Warn("Failed to close kafka reader", "error", err)
 	}
-	if err := c.pool.ReleaseTimeout(3 * time.Second); err != nil {
-		log.Warn("Failed to release worker pool for consumer", "error", err)
-	}
 	log.Info("Consumer stopped", "topic", c.topic)
 }
 
@@ -210,107 +194,11 @@ func (c *consumer) consume(ctx context.Context) {
 			time.Sleep(errorRetryInterval)
 			continue
 		}
-		c.q <- msg
+		c.consumeQueue.Add(&msg)
 	}
 }
 
-func (c *consumer) dispatch(ctx context.Context) {
-	messages := make([]kafka.Message, 0)
-
-	maxWait, batchSize := c.options.FetchMaxWait, c.options.BatchSize
-	timer := time.NewTimer(maxWait)
-	defer timer.Stop()
-	for {
-		timer.Reset(maxWait)
-		select {
-		case <-ctx.Done():
-			return
-		case <-timer.C:
-			if len(messages) > 0 {
-				c.handleMessages(ctx, messages)
-				messages = messages[:0]
-			}
-		case msg := <-c.q:
-			messages = append(messages, msg)
-			if len(messages) >= batchSize {
-				c.handleMessages(ctx, messages)
-				messages = messages[:0]
-			}
-
-			// Consume all messages in cache queue directly.
-		loop:
-			for {
-				select {
-				case msg = <-c.q:
-					messages = append(messages, msg)
-					if len(messages) >= batchSize {
-						c.handleMessages(ctx, messages)
-						messages = messages[:0]
-					}
-				default:
-					break loop
-				}
-			}
-		}
-	}
-}
-
-func (c *consumer) handleMessages(ctx context.Context, messages []kafka.Message) {
-	if len(messages) == 0 {
-		return
-	}
-	log.Debug("Handle messages", "topic", c.topic, "count", len(messages))
-
-	if c.options.OrderedMode {
-		c.handleMessagesInOrdered(ctx, messages)
-	} else {
-		c.handleMessagesInUnordered(ctx, messages)
-	}
-
-	c.commitOffset(ctx, messages)
-}
-
-func (c *consumer) handleMessagesInOrdered(ctx context.Context, messages []kafka.Message) {
-	totalPart := utils.Min(len(messages), 2*c.options.ParalSize)
-	messageParts := c.splitMsgsByKey(messages, totalPart)
-	wg := &sync.WaitGroup{}
-	// Parallel handle messages.
-	// Control the order of messages with the same key.
-	for i := range messageParts {
-		ms := messageParts[i]
-		if len(ms) == 0 {
-			continue
-		}
-		wg.Add(1)
-		_ = c.pool.Submit(func() {
-			defer func() {
-				wg.Done()
-			}()
-			for _, m := range ms {
-				c.doHandle(ctx, m)
-			}
-		})
-	}
-	wg.Wait()
-}
-
-func (c *consumer) handleMessagesInUnordered(ctx context.Context, messages []kafka.Message) {
-	wg := &sync.WaitGroup{}
-	// Parallel handle messages.
-	for i := range messages {
-		m := messages[i]
-		wg.Add(1)
-		_ = c.pool.Submit(func() {
-			defer func() {
-				wg.Done()
-			}()
-			c.doHandle(ctx, m)
-		})
-	}
-	wg.Wait()
-}
-
-func (c *consumer) doHandle(ctx context.Context, m kafka.Message) {
+func (c *consumer) handleMessage(ctx context.Context, m *kafka.Message) {
 	msg := &Message{
 		Key:     string(m.Key),
 		Value:   m.Value,
@@ -324,35 +212,20 @@ func (c *consumer) doHandle(ctx context.Context, m kafka.Message) {
 	if err != nil {
 		log.Error("Error handle message from kafka", "error", err, "key", msg.Key,
 			"body", string(msg.Value))
-		if c.options.ErrHandler != nil {
+		if !errors.Is(err, utils.NotRetryErr) && c.options.ErrHandler != nil {
 			_ = c.options.ErrHandler(ctx, msg, err)
 		}
 		return
 	}
 }
 
-func (c *consumer) commitOffset(ctx context.Context, messages []kafka.Message) {
+func (c *consumer) commitOffset(ctx context.Context, messages []kafka.Message) error {
 	if c.reader == nil {
-		return
+		return nil
 	}
 	if err := c.reader.CommitMessages(ctx, messages...); err != nil {
-		log.Error("Error commit consumer offset to kafka", "topic", c.topic, "error", err.Error())
+		log.Error("Error commit offset to kafka", "topic", c.topic, "error", err.Error())
+		return err
 	}
-}
-
-func (c *consumer) splitMsgsByKey(messages []kafka.Message, cnt int) [][]kafka.Message {
-	results := make([][]kafka.Message, cnt)
-	for i := range messages {
-		msg := messages[i]
-		idx := c.hashByKey(string(msg.Key), cnt)
-		results[idx] = append(results[idx], msg)
-	}
-	return results
-}
-
-func (c *consumer) hashByKey(key string, cnt int) int {
-	if key == "" {
-		return c.random.Intn(cnt)
-	}
-	return int(utils.StringHash(key) % uint32(cnt))
+	return nil
 }

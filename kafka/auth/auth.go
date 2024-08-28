@@ -1,10 +1,13 @@
-// Copyright 2023 Tao Wang <wangtaoking1@qq.com>. All rights reserved.
+// Copyright 2024 Tao Wang <wangtaoking1@qq.com>. All rights reserved.
 // Use of this source code is governed by a MIT style
 // license that can be found in the LICENSE file.
 
 package auth
 
 import (
+	"net"
+	"time"
+
 	"github.com/segmentio/kafka-go"
 )
 
@@ -28,9 +31,17 @@ func NewRawAuthenticator() Authenticator {
 }
 
 func (a *rawAuthenticator) GetTransport(assumeRole string) kafka.RoundTripper {
-	return kafka.DefaultTransport
+	return &kafka.Transport{
+		Dial: (&net.Dialer{
+			Timeout:   10 * time.Second,
+			DualStack: true,
+		}).DialContext,
+	}
 }
 
 func (a *rawAuthenticator) GetDialer(assumeRole string) *kafka.Dialer {
-	return kafka.DefaultDialer
+	return &kafka.Dialer{
+		Timeout:   10 * time.Second,
+		DualStack: true,
+	}
 }
