@@ -229,6 +229,9 @@ func (m *offsetManager) getCommitMsgs() (int64, []kafka.Message) {
 }
 
 func (m *offsetManager) refreshStatus(commitedID int64) {
+	m.mtx.Lock()
+	defer m.mtx.Unlock()
+
 	for seqID := m.commitedID + 1; seqID <= commitedID; seqID++ {
 		delete(m.msgs, seqID)
 	}
