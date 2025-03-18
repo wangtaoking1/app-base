@@ -9,9 +9,6 @@ import (
 
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
-	gormlogger "gorm.io/gorm/logger"
-
-	"github.com/wangtaoking1/app-base/log"
 )
 
 // New returns a new gorm db instance with specified options.
@@ -24,9 +21,7 @@ func New(opts *Options) (*gorm.DB, error) {
 		true,
 		"Local")
 
-	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
-		Logger: initLogger(opts),
-	})
+	db, err := gorm.Open(mysql.Open(dsn))
 	if err != nil {
 		return nil, err
 	}
@@ -36,16 +31,6 @@ func New(opts *Options) (*gorm.DB, error) {
 	}
 
 	return db, nil
-}
-
-func initLogger(opts *Options) gormlogger.Interface {
-	config := gormlogger.Config{
-		SlowThreshold: opts.SlowThreshold,
-		Colorful:      false,
-		LogLevel:      gormlogger.LogLevel(opts.LogLevel),
-	}
-
-	return gormlogger.New(log.StdLogger(log.InfoLevel), config)
 }
 
 func setupDBConfigs(db *gorm.DB, opts *Options) error {

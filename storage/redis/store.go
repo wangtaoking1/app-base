@@ -5,13 +5,14 @@
 package redis
 
 import (
+	"context"
 	goerrors "errors"
 	"fmt"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/go-redis/redis/v7"
+	"github.com/redis/go-redis/v9"
 	"github.com/spf13/viper"
 
 	"github.com/wangtaoking1/app-base/errors"
@@ -23,41 +24,44 @@ var ErrKeyNotFound = errors.New("key not found")
 
 // Store is the store interface of redis engine.
 type Store interface {
-	GetKey(string) (string, error) // Returned string is expected to be a JSON object (user.SessionState)
-	GetMultiKey([]string) ([]string, error)
-	GetRawKey(string) (string, error)
-	SetKey(
+	GetKey(
+		context.Context,
+		string,
+	) (string, error) // Returned string is expected to be a JSON object (user.SessionState)
+	GetMultiKey(context.Context, []string) ([]string, error)
+	GetRawKey(context.Context, string) (string, error)
+	SetKey(context.Context,
 		string,
 		string,
 		time.Duration,
 	) error // Second input string is expected to be a JSON object (user.SessionState)
-	SetRawKey(string, string, time.Duration) error
-	SetExp(string, time.Duration) error   // Set key expiration
-	GetExp(string) (time.Duration, error) // Returns expiry of a key
-	GetKeys(string) []string
-	DeleteKey(string) bool
-	DeleteAllKeys() bool
-	DeleteRawKey(string) bool
-	GetKeysAndValues() map[string]string
-	GetKeysAndValuesWithFilter(string) map[string]string
-	DeleteKeys([]string) bool
-	Decrement(string)
-	IncrememntWithExpire(string, time.Duration) int64
-	SetRollingWindow(key string, per int64, val string, pipeline bool) (int, []interface{})
-	GetRollingWindow(key string, per int64, pipeline bool) (int, []interface{})
-	GetSet(string) (map[string]string, error)
-	AddToSet(string, string)
-	GetAndDeleteSet(string) []interface{}
-	RemoveFromSet(string, string)
-	DeleteScanMatch(string) bool
+	SetRawKey(context.Context, string, string, time.Duration) error
+	SetExp(context.Context, string, time.Duration) error   // Set key expiration
+	GetExp(context.Context, string) (time.Duration, error) // Returns expiry of a key
+	GetKeys(context.Context, string) []string
+	DeleteKey(context.Context, string) bool
+	DeleteAllKeys(context.Context) bool
+	DeleteRawKey(context.Context, string) bool
+	GetKeysAndValues(context.Context) map[string]string
+	GetKeysAndValuesWithFilter(context.Context, string) map[string]string
+	DeleteKeys(context.Context, []string) bool
+	Decrement(context.Context, string)
+	IncrememntWithExpire(context.Context, string, time.Duration) int64
+	SetRollingWindow(ctx context.Context, key string, per int64, val string, pipeline bool) (int, []interface{})
+	GetRollingWindow(ctx context.Context, key string, per int64, pipeline bool) (int, []interface{})
+	GetSet(context.Context, string) (map[string]string, error)
+	AddToSet(context.Context, string, string)
+	GetAndDeleteSet(context.Context, string) []interface{}
+	RemoveFromSet(context.Context, string, string)
+	DeleteScanMatch(context.Context, string) bool
 	GetKeyPrefix() string
-	AddToSortedSet(string, string, float64)
-	GetSortedSetRange(string, string, string) ([]string, []float64, error)
-	RemoveSortedSetRange(string, string, string) error
-	GetListRange(string, int64, int64) ([]string, error)
-	RemoveFromList(string, string) error
-	AppendToSet(string, string)
-	Exists(string) (bool, error)
+	AddToSortedSet(context.Context, string, string, float64)
+	GetSortedSetRange(context.Context, string, string, string) ([]string, []float64, error)
+	RemoveSortedSetRange(context.Context, string, string, string) error
+	GetListRange(context.Context, string, int64, int64) ([]string, error)
+	RemoveFromList(context.Context, string, string) error
+	AppendToSet(context.Context, string, string)
+	Exists(context.Context, string) (bool, error)
 }
 
 type store struct {
@@ -113,8 +117,8 @@ func (s *store) cleanKey(keyName string) string {
 }
 
 // GetKey will retrieve a key from the database.
-func (s *store) GetKey(keyName string) (string, error) {
-	value, err := s.cli.Get(s.fixKey(keyName)).Result()
+func (s *store) GetKey(ctx context.Context, keyName string) (string, error) {
+	value, err := s.cli.Get(ctx, s.fixKey(keyName)).Result()
 	if err != nil {
 		log.Debugf("Error trying to get value: %s", err.Error())
 
@@ -125,7 +129,7 @@ func (s *store) GetKey(keyName string) (string, error) {
 }
 
 // GetMultiKey gets multiple keys from the database.
-func (s *store) GetMultiKey(keys []string) ([]string, error) {
+func (s *store) GetMultiKey(ctx context.Context, keys []string) ([]string, error) {
 	keyNames := make([]string, len(keys))
 	copy(keyNames, keys)
 	for index, val := range keyNames {
@@ -140,9 +144,9 @@ func (s *store) GetMultiKey(keys []string) ([]string, error) {
 			getCmds := make([]*redis.StringCmd, 0)
 			pipe := v.Pipeline()
 			for _, key := range keyNames {
-				getCmds = append(getCmds, pipe.Get(key))
+				getCmds = append(getCmds, pipe.Get(ctx, key))
 			}
-			_, err := pipe.Exec()
+			_, err := pipe.Exec(ctx)
 			if err != nil && !goerrors.Is(err, redis.Nil) {
 				log.Debugf("Error trying to get value: %s", err.Error())
 
@@ -154,7 +158,7 @@ func (s *store) GetMultiKey(keys []string) ([]string, error) {
 		}
 	case *redis.Client:
 		{
-			values, err := s.cli.MGet(keyNames...).Result()
+			values, err := s.cli.MGet(ctx, keyNames...).Result()
 			if err != nil {
 				log.Debugf("Error trying to get value: %s", err.Error())
 
@@ -180,15 +184,15 @@ func (s *store) GetMultiKey(keys []string) ([]string, error) {
 }
 
 // GetKeyTTL return ttl of the given key.
-func (s *store) GetKeyTTL(keyName string) (ttl int64, err error) {
-	duration, err := s.cli.TTL(s.fixKey(keyName)).Result()
+func (s *store) GetKeyTTL(ctx context.Context, keyName string) (ttl int64, err error) {
+	duration, err := s.cli.TTL(ctx, s.fixKey(keyName)).Result()
 
 	return int64(duration.Seconds()), err
 }
 
 // GetRawKey return the value of the given key.
-func (s *store) GetRawKey(keyName string) (string, error) {
-	value, err := s.cli.Get(keyName).Result()
+func (s *store) GetRawKey(ctx context.Context, keyName string) (string, error) {
+	value, err := s.cli.Get(ctx, keyName).Result()
 	if err != nil {
 		log.Debugf("Error trying to get value: %s", err.Error())
 
@@ -199,9 +203,9 @@ func (s *store) GetRawKey(keyName string) (string, error) {
 }
 
 // GetExp return the expiry of the given key.
-func (s *store) GetExp(keyName string) (time.Duration, error) {
+func (s *store) GetExp(ctx context.Context, keyName string) (time.Duration, error) {
 	log.Debugf("Getting exp for key: %s", s.fixKey(keyName))
-	value, err := s.cli.TTL(s.fixKey(keyName)).Result()
+	value, err := s.cli.TTL(ctx, s.fixKey(keyName)).Result()
 	if err != nil {
 		log.Errorf("Error trying to get TTL: ", err.Error())
 
@@ -212,8 +216,8 @@ func (s *store) GetExp(keyName string) (time.Duration, error) {
 }
 
 // SetExp set expiry of the given key.
-func (s *store) SetExp(keyName string, timeout time.Duration) error {
-	err := s.cli.Expire(s.fixKey(keyName), timeout).Err()
+func (s *store) SetExp(ctx context.Context, keyName string, timeout time.Duration) error {
+	err := s.cli.Expire(ctx, s.fixKey(keyName), timeout).Err()
 	if err != nil {
 		log.Errorf("Could not EXPIRE key: %s", err.Error())
 	}
@@ -222,11 +226,11 @@ func (s *store) SetExp(keyName string, timeout time.Duration) error {
 }
 
 // SetKey will create (or update) a key value in the store.
-func (s *store) SetKey(keyName, session string, timeout time.Duration) error {
+func (s *store) SetKey(ctx context.Context, keyName, session string, timeout time.Duration) error {
 	log.Debugf("[STORE] SET Raw key is: %s", keyName)
 	log.Debugf("[STORE] Setting key: %s", s.fixKey(keyName))
 
-	err := s.cli.Set(s.fixKey(keyName), session, timeout).Err()
+	err := s.cli.Set(ctx, s.fixKey(keyName), session, timeout).Err()
 	if err != nil {
 		log.Errorf("Error trying to set value: %s", err.Error())
 
@@ -237,8 +241,8 @@ func (s *store) SetKey(keyName, session string, timeout time.Duration) error {
 }
 
 // SetRawKey set the value of the given key.
-func (s *store) SetRawKey(keyName, session string, timeout time.Duration) error {
-	err := s.cli.Set(keyName, session, timeout).Err()
+func (s *store) SetRawKey(ctx context.Context, keyName, session string, timeout time.Duration) error {
+	err := s.cli.Set(ctx, keyName, session, timeout).Err()
 	if err != nil {
 		log.Errorf("Error trying to set value: %s", err.Error())
 
@@ -249,21 +253,21 @@ func (s *store) SetRawKey(keyName, session string, timeout time.Duration) error 
 }
 
 // Decrement will decrement a key in redis.
-func (s *store) Decrement(keyName string) {
+func (s *store) Decrement(ctx context.Context, keyName string) {
 	keyName = s.fixKey(keyName)
 	log.Debugf("Decrementing key: %s", keyName)
-	err := s.cli.Decr(keyName).Err()
+	err := s.cli.Decr(ctx, keyName).Err()
 	if err != nil {
 		log.Errorf("Error trying to decrement value: %s", err.Error())
 	}
 }
 
 // IncrememntWithExpire will increment a key in redis.
-func (s *store) IncrememntWithExpire(keyName string, expire time.Duration) int64 {
+func (s *store) IncrememntWithExpire(ctx context.Context, keyName string, expire time.Duration) int64 {
 	log.Debugf("Incrementing raw key: %s", keyName)
 	// This function uses a raw key, so we shouldn't call fixKey
 	fixedKey := keyName
-	val, err := s.cli.Incr(fixedKey).Result()
+	val, err := s.cli.Incr(ctx, fixedKey).Result()
 
 	if err != nil {
 		log.Errorf("Error trying to increment value: %s", err.Error())
@@ -273,14 +277,14 @@ func (s *store) IncrememntWithExpire(keyName string, expire time.Duration) int64
 
 	if val == 1 && expire > 0 {
 		log.Debug("--> Setting Expire")
-		s.cli.Expire(fixedKey, expire)
+		s.cli.Expire(ctx, fixedKey, expire)
 	}
 
 	return val
 }
 
 // GetKeys will return all keys according to the filter (filter is a prefix - e.g. tyk.keys.*).
-func (s *store) GetKeys(filter string) []string {
+func (s *store) GetKeys(ctx context.Context, filter string) []string {
 	filterHash := ""
 	if filter != "" {
 		filterHash = s.hashKey(filter)
@@ -288,11 +292,11 @@ func (s *store) GetKeys(filter string) []string {
 	searchStr := s.keyPrefix + filterHash + "*"
 	log.Debugf("[STORE] Getting list by: %s", searchStr)
 
-	fnFetchKeys := func(client *redis.Client) ([]string, error) {
+	fnFetchKeys := func(ctx context.Context, client *redis.Client) ([]string, error) {
 		values := make([]string, 0)
 
-		iter := client.Scan(0, searchStr, 0).Iterator()
-		for iter.Next() {
+		iter := client.Scan(ctx, 0, searchStr, 0).Iterator()
+		for iter.Next(ctx) {
 			values = append(values, iter.Val())
 		}
 
@@ -312,8 +316,8 @@ func (s *store) GetKeys(filter string) []string {
 		ch := make(chan []string)
 
 		go func() {
-			err = v.ForEachMaster(func(client *redis.Client) error {
-				values, err = fnFetchKeys(client)
+			err = v.ForEachMaster(ctx, func(ctx context.Context, client *redis.Client) error {
+				values, err = fnFetchKeys(ctx, client)
 				if err != nil {
 					return err
 				}
@@ -329,7 +333,7 @@ func (s *store) GetKeys(filter string) []string {
 			sessions = append(sessions, res...)
 		}
 	case *redis.Client:
-		sessions, err = fnFetchKeys(v)
+		sessions, err = fnFetchKeys(ctx, v)
 	}
 
 	if err != nil {
@@ -346,8 +350,8 @@ func (s *store) GetKeys(filter string) []string {
 }
 
 // GetKeysAndValuesWithFilter will return all keys and their values with a filter.
-func (s *store) GetKeysAndValuesWithFilter(filter string) map[string]string {
-	keys := s.GetKeys(filter)
+func (s *store) GetKeysAndValuesWithFilter(ctx context.Context, filter string) map[string]string {
+	keys := s.GetKeys(ctx, filter)
 	if keys == nil {
 		log.Error("Error trying to get filtered client keys")
 
@@ -371,9 +375,9 @@ func (s *store) GetKeysAndValuesWithFilter(filter string) map[string]string {
 			getCmds := make([]*redis.StringCmd, 0)
 			pipe := v.Pipeline()
 			for _, key := range keys {
-				getCmds = append(getCmds, pipe.Get(key))
+				getCmds = append(getCmds, pipe.Get(ctx, key))
 			}
-			_, err := pipe.Exec()
+			_, err := pipe.Exec(ctx)
 			if err != nil && !goerrors.Is(err, redis.Nil) {
 				log.Errorf("Error trying to get client keys: %s", err.Error())
 
@@ -386,7 +390,7 @@ func (s *store) GetKeysAndValuesWithFilter(filter string) map[string]string {
 		}
 	case *redis.Client:
 		{
-			result, err := v.MGet(keys...).Result()
+			result, err := v.MGet(ctx, keys...).Result()
 			if err != nil {
 				log.Errorf("Error trying to get client keys: %s", err.Error())
 
@@ -412,15 +416,15 @@ func (s *store) GetKeysAndValuesWithFilter(filter string) map[string]string {
 }
 
 // GetKeysAndValues will return all keys and their values - not to be used lightly.
-func (s *store) GetKeysAndValues() map[string]string {
-	return s.GetKeysAndValuesWithFilter("")
+func (s *store) GetKeysAndValues(ctx context.Context) map[string]string {
+	return s.GetKeysAndValuesWithFilter(ctx, "")
 }
 
 // DeleteKey will remove a key from the database.
-func (s *store) DeleteKey(keyName string) bool {
+func (s *store) DeleteKey(ctx context.Context, keyName string) bool {
 	log.Debugf("DEL Key was: %s", keyName)
 	log.Debugf("DEL Key became: %s", s.fixKey(keyName))
-	n, err := s.cli.Del(s.fixKey(keyName)).Result()
+	n, err := s.cli.Del(ctx, s.fixKey(keyName)).Result()
 	if err != nil {
 		log.Errorf("Error trying to delete key: %s", err.Error())
 	}
@@ -429,8 +433,8 @@ func (s *store) DeleteKey(keyName string) bool {
 }
 
 // DeleteAllKeys will remove all keys from the database.
-func (s *store) DeleteAllKeys() bool {
-	n, err := s.cli.FlushAll().Result()
+func (s *store) DeleteAllKeys(ctx context.Context) bool {
+	n, err := s.cli.FlushAll(ctx).Result()
 	if err != nil {
 		log.Errorf("Error trying to delete keys: %s", err.Error())
 	}
@@ -443,8 +447,8 @@ func (s *store) DeleteAllKeys() bool {
 }
 
 // DeleteRawKey will remove a key from the database without prefixing, assumes user knows what they are doing.
-func (s *store) DeleteRawKey(keyName string) bool {
-	n, err := s.cli.Del(keyName).Result()
+func (s *store) DeleteRawKey(ctx context.Context, keyName string) bool {
+	n, err := s.cli.Del(ctx, keyName).Result()
 	if err != nil {
 		log.Errorf("Error trying to delete key: %s", err.Error())
 	}
@@ -453,15 +457,15 @@ func (s *store) DeleteRawKey(keyName string) bool {
 }
 
 // DeleteScanMatch will remove a group of keys in bulk.
-func (s *store) DeleteScanMatch(pattern string) bool {
+func (s *store) DeleteScanMatch(ctx context.Context, pattern string) bool {
 	client := s.cli
 	log.Debugf("Deleting: %s", pattern)
 
-	fnScan := func(client *redis.Client) ([]string, error) {
+	fnScan := func(ctx context.Context, client *redis.Client) ([]string, error) {
 		values := make([]string, 0)
 
-		iter := client.Scan(0, pattern, 0).Iterator()
-		for iter.Next() {
+		iter := client.Scan(ctx, 0, pattern, 0).Iterator()
+		for iter.Next(ctx) {
 			values = append(values, iter.Val())
 		}
 
@@ -480,8 +484,8 @@ func (s *store) DeleteScanMatch(pattern string) bool {
 	case *redis.ClusterClient:
 		ch := make(chan []string)
 		go func() {
-			err = v.ForEachMaster(func(client *redis.Client) error {
-				values, err = fnScan(client)
+			err = v.ForEachMaster(ctx, func(ctx context.Context, client *redis.Client) error {
+				values, err = fnScan(ctx, client)
 				if err != nil {
 					return err
 				}
@@ -497,7 +501,7 @@ func (s *store) DeleteScanMatch(pattern string) bool {
 			keys = append(keys, vals...)
 		}
 	case *redis.Client:
-		keys, err = fnScan(v)
+		keys, err = fnScan(ctx, v)
 	}
 
 	if err != nil {
@@ -509,7 +513,7 @@ func (s *store) DeleteScanMatch(pattern string) bool {
 	if len(keys) > 0 {
 		for _, name := range keys {
 			log.Infof("Deleting: %s", name)
-			err := client.Del(name).Err()
+			err := client.Del(ctx, name).Err()
 			if err != nil {
 				log.Errorf("Error trying to delete key: %s - %s", name, err.Error())
 			}
@@ -523,7 +527,7 @@ func (s *store) DeleteScanMatch(pattern string) bool {
 }
 
 // DeleteKeys will remove a group of keys in bulk.
-func (s *store) DeleteKeys(keys []string) bool {
+func (s *store) DeleteKeys(ctx context.Context, keys []string) bool {
 	if len(keys) > 0 {
 		for i, v := range keys {
 			keys[i] = s.fixKey(v)
@@ -536,16 +540,16 @@ func (s *store) DeleteKeys(keys []string) bool {
 			{
 				pipe := v.Pipeline()
 				for _, k := range keys {
-					pipe.Del(k)
+					pipe.Del(ctx, k)
 				}
 
-				if _, err := pipe.Exec(); err != nil {
+				if _, err := pipe.Exec(ctx); err != nil {
 					log.Errorf("Error trying to delete keys: %s", err.Error())
 				}
 			}
 		case *redis.Client:
 			{
-				_, err := v.Del(keys...).Result()
+				_, err := v.Del(ctx, keys...).Result()
 				if err != nil {
 					log.Errorf("Error trying to delete keys: %s", err.Error())
 				}
@@ -560,11 +564,11 @@ func (s *store) DeleteKeys(keys []string) bool {
 
 // StartPubSubHandler will listen for a signal and run the callback for
 // every subscription and message event.
-func (s *store) StartPubSubHandler(channel string, callback func(interface{})) error {
-	pubsub := s.cli.Subscribe(channel)
+func (s *store) StartPubSubHandler(ctx context.Context, channel string, callback func(interface{})) error {
+	pubsub := s.cli.Subscribe(ctx, channel)
 	defer pubsub.Close()
 
-	if _, err := pubsub.Receive(); err != nil {
+	if _, err := pubsub.Receive(ctx); err != nil {
 		log.Errorf("Error while receiving pubsub message: %s", err.Error())
 
 		return err
@@ -578,8 +582,8 @@ func (s *store) StartPubSubHandler(channel string, callback func(interface{})) e
 }
 
 // Publish publishes a message to the specify channel.
-func (s *store) Publish(channel, message string) error {
-	err := s.cli.Publish(channel, message).Err()
+func (s *store) Publish(ctx context.Context, channel, message string) error {
+	err := s.cli.Publish(ctx, channel, message).Err()
 	if err != nil {
 		log.Errorf("Error trying to set value: %s", err.Error())
 
@@ -590,7 +594,7 @@ func (s *store) Publish(channel, message string) error {
 }
 
 // GetAndDeleteSet get and delete a key.
-func (s *store) GetAndDeleteSet(keyName string) []interface{} {
+func (s *store) GetAndDeleteSet(ctx context.Context, keyName string) []interface{} {
 	log.Debugf("Getting raw key set: %s", keyName)
 	log.Debugf("keyName is: %s", keyName)
 	fixedKey := s.fixKey(keyName)
@@ -599,9 +603,9 @@ func (s *store) GetAndDeleteSet(keyName string) []interface{} {
 	client := s.cli
 
 	var lrange *redis.StringSliceCmd
-	_, err := client.TxPipelined(func(pipe redis.Pipeliner) error {
-		lrange = pipe.LRange(fixedKey, 0, -1)
-		pipe.Del(fixedKey)
+	_, err := client.TxPipelined(ctx, func(pipe redis.Pipeliner) error {
+		lrange = pipe.LRange(ctx, fixedKey, 0, -1)
+		pipe.Del(ctx, fixedKey)
 
 		return nil
 	})
@@ -627,21 +631,21 @@ func (s *store) GetAndDeleteSet(keyName string) []interface{} {
 }
 
 // AppendToSet append a value to the key set.
-func (s *store) AppendToSet(keyName, value string) {
+func (s *store) AppendToSet(ctx context.Context, keyName, value string) {
 	fixedKey := s.fixKey(keyName)
 	log.Debug("Pushing to raw key list", "keyName", keyName)
 	log.Debug("Appending to fixed key list", "fixedKey", fixedKey)
-	if err := s.cli.RPush(fixedKey, value).Err(); err != nil {
+	if err := s.cli.RPush(ctx, fixedKey, value).Err(); err != nil {
 		log.Errorf("Error trying to append to set keys: %s", err.Error())
 	}
 }
 
 // Exists check if keyName exists.
-func (s *store) Exists(keyName string) (bool, error) {
+func (s *store) Exists(ctx context.Context, keyName string) (bool, error) {
 	fixedKey := s.fixKey(keyName)
 	log.Debug("Checking if exists", "keyName", fixedKey)
 
-	exists, err := s.cli.Exists(fixedKey).Result()
+	exists, err := s.cli.Exists(ctx, fixedKey).Result()
 	if err != nil {
 		log.Errorf("Error trying to check if key exists: %s", err.Error())
 
@@ -655,12 +659,12 @@ func (s *store) Exists(keyName string) (bool, error) {
 }
 
 // RemoveFromList delete an value from a list idetinfied with the keyName.
-func (s *store) RemoveFromList(keyName, value string) error {
+func (s *store) RemoveFromList(ctx context.Context, keyName, value string) error {
 	fixedKey := s.fixKey(keyName)
 
 	log.Debug("Removing value from list", "keyName", keyName, "fixedKey", fixedKey, "value", value)
 
-	if err := s.cli.LRem(fixedKey, 0, value).Err(); err != nil {
+	if err := s.cli.LRem(ctx, fixedKey, 0, value).Err(); err != nil {
 		log.Error("LREM command failed", "keyName", keyName, "fixedKey", fixedKey,
 			"value", value, "error", err.Error())
 
@@ -671,10 +675,10 @@ func (s *store) RemoveFromList(keyName, value string) error {
 }
 
 // GetListRange gets range of elements of list identified by keyName.
-func (s *store) GetListRange(keyName string, from, to int64) ([]string, error) {
+func (s *store) GetListRange(ctx context.Context, keyName string, from, to int64) ([]string, error) {
 	fixedKey := s.fixKey(keyName)
 
-	elements, err := s.cli.LRange(fixedKey, from, to).Result()
+	elements, err := s.cli.LRange(ctx, fixedKey, from, to).Result()
 	if err != nil {
 		log.Error("LRANGE command failed", "keyName", keyName, "fixedKey", fixedKey,
 			"from", from, "to", to, "error", err.Error())
@@ -686,35 +690,35 @@ func (s *store) GetListRange(keyName string, from, to int64) ([]string, error) {
 }
 
 // AppendToSetPipelined append values to redis pipeline.
-func (s *store) AppendToSetPipelined(key string, values [][]byte) {
+func (s *store) AppendToSetPipelined(ctx context.Context, key string, values [][]byte) {
 	if len(values) == 0 {
 		return
 	}
 
 	pipe := s.cli.Pipeline()
 	for _, val := range values {
-		pipe.RPush(s.fixKey(key), val)
+		pipe.RPush(ctx, s.fixKey(key), val)
 	}
 
-	if _, err := pipe.Exec(); err != nil {
+	if _, err := pipe.Exec(ctx); err != nil {
 		log.Errorf("Error trying to append to set keys: %s", err.Error())
 	}
 
 	// if we need to set an expiration time
 	if storageExpTime := int64(viper.GetDuration("analytics.storage-expiration-time")); storageExpTime != int64(-1) {
 		// If there is no expiry on the analytics set, we should set it.
-		exp, _ := s.GetExp(key)
+		exp, _ := s.GetExp(ctx, key)
 		if exp == -1 {
-			_ = s.SetExp(key, time.Duration(storageExpTime)*time.Second)
+			_ = s.SetExp(ctx, key, time.Duration(storageExpTime)*time.Second)
 		}
 	}
 }
 
 // GetSet return key set value.
-func (s *store) GetSet(keyName string) (map[string]string, error) {
+func (s *store) GetSet(ctx context.Context, keyName string) (map[string]string, error) {
 	log.Debugf("Getting from key set: %s", keyName)
 	log.Debugf("Getting from fixed key set: %s", s.fixKey(keyName))
-	val, err := s.cli.SMembers(s.fixKey(keyName)).Result()
+	val, err := s.cli.SMembers(ctx, s.fixKey(keyName)).Result()
 	if err != nil {
 		log.Errorf("Error trying to get key set: %s", err.Error())
 
@@ -730,28 +734,28 @@ func (s *store) GetSet(keyName string) (map[string]string, error) {
 }
 
 // AddToSet add value to key set.
-func (s *store) AddToSet(keyName, value string) {
+func (s *store) AddToSet(ctx context.Context, keyName, value string) {
 	log.Debugf("Pushing to raw key set: %s", keyName)
 	log.Debugf("Pushing to fixed key set: %s", s.fixKey(keyName))
-	err := s.cli.SAdd(s.fixKey(keyName), value).Err()
+	err := s.cli.SAdd(ctx, s.fixKey(keyName), value).Err()
 	if err != nil {
 		log.Errorf("Error trying to append keys: %s", err.Error())
 	}
 }
 
 // RemoveFromSet remove a value from key set.
-func (s *store) RemoveFromSet(keyName, value string) {
+func (s *store) RemoveFromSet(ctx context.Context, keyName, value string) {
 	log.Debugf("Removing from raw key set: %s", keyName)
 	log.Debugf("Removing from fixed key set: %s", s.fixKey(keyName))
-	err := s.cli.SRem(s.fixKey(keyName), value).Err()
+	err := s.cli.SRem(ctx, s.fixKey(keyName), value).Err()
 	if err != nil {
 		log.Errorf("Error trying to remove keys: %s", err.Error())
 	}
 }
 
 // IsMemberOfSet return whether the given value belong to key set.
-func (s *store) IsMemberOfSet(keyName, value string) bool {
-	val, err := s.cli.SIsMember(s.fixKey(keyName), value).Result()
+func (s *store) IsMemberOfSet(ctx context.Context, keyName, value string) bool {
+	val, err := s.cli.SIsMember(ctx, s.fixKey(keyName), value).Result()
 	if err != nil {
 		log.Errorf("Error trying to check set member: %s", err.Error())
 
@@ -764,7 +768,13 @@ func (s *store) IsMemberOfSet(keyName, value string) bool {
 }
 
 // SetRollingWindow will append to a sorted set in redis and extract a timed window of values.
-func (s *store) SetRollingWindow(keyName string, per int64, valueOverride string, pipeline bool) (int, []interface{}) {
+func (s *store) SetRollingWindow(
+	ctx context.Context,
+	keyName string,
+	per int64,
+	valueOverride string,
+	pipeline bool,
+) (int, []interface{}) {
 	log.Debugf("Incrementing raw key: %s", keyName)
 	log.Debugf("keyName is: %s", keyName)
 	now := time.Now()
@@ -776,8 +786,8 @@ func (s *store) SetRollingWindow(keyName string, per int64, valueOverride string
 	var zrange *redis.StringSliceCmd
 
 	pipeFn := func(pipe redis.Pipeliner) error {
-		pipe.ZRemRangeByScore(keyName, "-inf", strconv.Itoa(int(onePeriodAgo.UnixNano())))
-		zrange = pipe.ZRange(keyName, 0, -1)
+		pipe.ZRemRangeByScore(ctx, keyName, "-inf", strconv.Itoa(int(onePeriodAgo.UnixNano())))
+		zrange = pipe.ZRange(ctx, keyName, 0, -1)
 
 		element := redis.Z{
 			Score: float64(now.UnixNano()),
@@ -789,17 +799,17 @@ func (s *store) SetRollingWindow(keyName string, per int64, valueOverride string
 			element.Member = strconv.Itoa(int(now.UnixNano()))
 		}
 
-		pipe.ZAdd(keyName, &element)
-		pipe.Expire(keyName, time.Duration(per)*time.Second)
+		pipe.ZAdd(ctx, keyName, element)
+		pipe.Expire(ctx, keyName, time.Duration(per)*time.Second)
 
 		return nil
 	}
 
 	var err error
 	if pipeline {
-		_, err = client.Pipelined(pipeFn)
+		_, err = client.Pipelined(ctx, pipeFn)
 	} else {
-		_, err = client.TxPipelined(pipeFn)
+		_, err = client.TxPipelined(ctx, pipeFn)
 	}
 
 	if err != nil {
@@ -828,7 +838,7 @@ func (s *store) SetRollingWindow(keyName string, per int64, valueOverride string
 }
 
 // GetRollingWindow return rolling window.
-func (s *store) GetRollingWindow(keyName string, per int64, pipeline bool) (int, []interface{}) {
+func (s *store) GetRollingWindow(ctx context.Context, keyName string, per int64, pipeline bool) (int, []interface{}) {
 	now := time.Now()
 	onePeriodAgo := now.Add(time.Duration(-1*per) * time.Second)
 
@@ -836,17 +846,17 @@ func (s *store) GetRollingWindow(keyName string, per int64, pipeline bool) (int,
 	var zrange *redis.StringSliceCmd
 
 	pipeFn := func(pipe redis.Pipeliner) error {
-		pipe.ZRemRangeByScore(keyName, "-inf", strconv.Itoa(int(onePeriodAgo.UnixNano())))
-		zrange = pipe.ZRange(keyName, 0, -1)
+		pipe.ZRemRangeByScore(ctx, keyName, "-inf", strconv.Itoa(int(onePeriodAgo.UnixNano())))
+		zrange = pipe.ZRange(ctx, keyName, 0, -1)
 
 		return nil
 	}
 
 	var err error
 	if pipeline {
-		_, err = client.Pipelined(pipeFn)
+		_, err = client.Pipelined(ctx, pipeFn)
 	} else {
-		_, err = client.TxPipelined(pipeFn)
+		_, err = client.TxPipelined(ctx, pipeFn)
 	}
 	if err != nil {
 		log.Errorf("Multi command failed: %s", err.Error())
@@ -878,26 +888,29 @@ func (s *store) GetKeyPrefix() string {
 }
 
 // AddToSortedSet adds value with given score to sorted set identified by keyName.
-func (s *store) AddToSortedSet(keyName, value string, score float64) {
+func (s *store) AddToSortedSet(ctx context.Context, keyName, value string, score float64) {
 	fixedKey := s.fixKey(keyName)
 
 	log.Debug("Pushing raw key to sorted set", "keyName", keyName, "fixedKey", fixedKey)
 
 	member := redis.Z{Score: score, Member: value}
-	if err := s.cli.ZAdd(fixedKey, &member).Err(); err != nil {
+	if err := s.cli.ZAdd(ctx, fixedKey, member).Err(); err != nil {
 		log.Error("ZADD command failed", "keyName", keyName, "fixedKey", fixedKey,
 			"error", err.Error())
 	}
 }
 
 // GetSortedSetRange gets range of elements of sorted set identified by keyName.
-func (s *store) GetSortedSetRange(keyName, scoreFrom, scoreTo string) ([]string, []float64, error) {
+func (s *store) GetSortedSetRange(
+	ctx context.Context,
+	keyName, scoreFrom, scoreTo string,
+) ([]string, []float64, error) {
 	fixedKey := s.fixKey(keyName)
 	log.Debug("Getting sorted set range", "keyName", keyName, "fixedKey", fixedKey,
 		"scoreFrom", scoreFrom, "scoreTo", scoreTo)
 
 	args := redis.ZRangeBy{Min: scoreFrom, Max: scoreTo}
-	values, err := s.cli.ZRangeByScoreWithScores(fixedKey, &args).Result()
+	values, err := s.cli.ZRangeByScoreWithScores(ctx, fixedKey, &args).Result()
 	if err != nil {
 		log.Error("ZRANGEBYSCORE command failed", "keyName", keyName, "fixedKey", fixedKey,
 			"scoreFrom", scoreFrom, "scoreTo", scoreTo, "error", err.Error())
@@ -921,13 +934,13 @@ func (s *store) GetSortedSetRange(keyName, scoreFrom, scoreTo string) ([]string,
 }
 
 // RemoveSortedSetRange removes range of elements from sorted set identified by keyName.
-func (s *store) RemoveSortedSetRange(keyName, scoreFrom, scoreTo string) error {
+func (s *store) RemoveSortedSetRange(ctx context.Context, keyName, scoreFrom, scoreTo string) error {
 	fixedKey := s.fixKey(keyName)
 
 	log.Debug("Removing sorted set range", "keyName", keyName, "fixedKey", fixedKey,
 		"scoreFrom", scoreFrom, "scoreTo", scoreTo)
 
-	if err := s.cli.ZRemRangeByScore(fixedKey, scoreFrom, scoreTo).Err(); err != nil {
+	if err := s.cli.ZRemRangeByScore(ctx, fixedKey, scoreFrom, scoreTo).Err(); err != nil {
 		log.Debug("ZREMRANGEBYSCORE command failed", "keyName", keyName, "fixedKey", fixedKey,
 			"scoreFrom", scoreFrom, "scoreTo", scoreTo, "error", err.Error())
 

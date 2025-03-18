@@ -15,15 +15,11 @@ import (
 
 type WOptions struct {
 	Interval time.Duration `json:"interval" mapstructure:"interval"`
-
-	Log *log.Options `json:"log" mapstructure:"log"`
 }
 
 func (o *WOptions) Flags() (fss flag.NamedFlagSets) {
 	fs := fss.FlagSet("generic")
 	fs.DurationVarP(&o.Interval, "interval", "i", 5*time.Second, "sync interval")
-
-	o.Log.AddFlags(fss.FlagSet("log"))
 
 	return fss
 }
@@ -34,16 +30,12 @@ func (o *WOptions) Validate() []error {
 		errs = append(errs, errors.New("interval must not bigger than 30s"))
 	}
 
-	errs = append(errs, o.Log.Validate()...)
-
 	return errs
 }
 
 func newWOptions() *WOptions {
 	return &WOptions{
 		Interval: 5 * time.Second,
-
-		Log: log.NewOptions(),
 	}
 }
 
@@ -63,7 +55,9 @@ func main() {
 
 func run(opts *WOptions) app.RunFunc {
 	return func(name string) error {
-		log.Init(opts.Log)
+		if err := log.InitLogger(false); err != nil {
+			return err
+		}
 
 		log.Debug("This is a debug msg for test")
 		log.Info("This is a hello world msg")

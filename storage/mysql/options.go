@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/spf13/pflag"
-	gormlogger "gorm.io/gorm/logger"
 )
 
 // Options defines options for mysql database.
@@ -21,8 +20,6 @@ type Options struct {
 	MaxIdleConnections    int           `json:"max-idle-connections,omitempty"     mapstructure:"max-idle-connections"`
 	MaxOpenConnections    int           `json:"max-open-connections,omitempty"     mapstructure:"max-open-connections"`
 	MaxConnectionLifeTime time.Duration `json:"max-connection-life-time,omitempty" mapstructure:"max-connection-life-time"`
-	SlowThreshold         time.Duration `json:"slow-threshold,omitempty"           mapstructure:"slow-threshold"`
-	LogLevel              int           `json:"log-level"                          mapstructure:"log-level"`
 }
 
 // NewOptions create a new options instance.
@@ -35,8 +32,6 @@ func NewOptions() *Options {
 		MaxIdleConnections:    100,
 		MaxOpenConnections:    100,
 		MaxConnectionLifeTime: 10 * time.Second,
-		SlowThreshold:         200 * time.Millisecond,
-		LogLevel:              int(gormlogger.Silent),
 	}
 }
 
@@ -48,9 +43,6 @@ func (o *Options) Validate() []error {
 	}
 	if o.MaxOpenConnections < o.MaxIdleConnections {
 		errs = append(errs, fmt.Errorf("max-open-connections must not be less than max-idle-connections"))
-	}
-	if o.LogLevel < 1 || o.LogLevel > 4 {
-		errs = append(errs, fmt.Errorf("log-level must be an integer in [1,4]"))
 	}
 
 	return errs
@@ -70,9 +62,4 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 		"Maximum open connections allowed to connect to mysql.")
 	fs.DurationVar(&o.MaxConnectionLifeTime, "mysql.max-connection-life-time", o.MaxConnectionLifeTime, ""+
 		"Maximum connection life time allowed to connect to mysql.")
-	fs.DurationVar(&o.SlowThreshold, "mysql.slow-threshold", o.SlowThreshold, ""+
-		"Slow sql threshold when access to mysql.")
-
-	fs.IntVar(&o.LogLevel, "mysql.log-level", o.LogLevel, "Specify gorm log level. "+
-		"1: Silent, 2: Error, 3: Warn, 4: Info")
 }

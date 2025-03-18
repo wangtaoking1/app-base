@@ -8,7 +8,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/go-redis/redis/v7"
+	"github.com/redis/go-redis/v9"
 
 	"github.com/wangtaoking1/app-base/errors"
 	"github.com/wangtaoking1/app-base/log"
@@ -83,7 +83,7 @@ func shutdown(ctx context.Context) {
 	<-ctx.Done()
 
 	if singletonInstance != nil {
-		singletonInstance.Shutdown()
+		singletonInstance.Shutdown(ctx)
 		_ = singletonInstance.Close()
 	}
 }

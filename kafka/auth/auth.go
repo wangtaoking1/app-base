@@ -1,4 +1,4 @@
-// Copyright 2024 Tao Wang <wangtaoking1@qq.com>. All rights reserved.
+// Copyright 2025 Tao Wang <wangtaoking1@qq.com>. All rights reserved.
 // Use of this source code is governed by a MIT style
 // license that can be found in the LICENSE file.
 
@@ -14,7 +14,9 @@ import (
 type AuthType string
 
 const (
-	AuthTypeRaw AuthType = "raw"
+	AuthTypeRaw  AuthType = "raw"
+	AuthTypeAws  AuthType = "aws"
+	AuthTypeSASL AuthType = "sasl"
 )
 
 type Authenticator interface {
@@ -24,7 +26,8 @@ type Authenticator interface {
 	GetDialer(assumeRole string) *kafka.Dialer
 }
 
-type rawAuthenticator struct{}
+type rawAuthenticator struct {
+}
 
 func NewRawAuthenticator() Authenticator {
 	return &rawAuthenticator{}

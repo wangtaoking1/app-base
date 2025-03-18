@@ -1,4 +1,4 @@
-// Copyright 2024 Tao Wang <wangtaoking1@qq.com>. All rights reserved.
+// Copyright 2025 Tao Wang <wangtaoking1@qq.com>. All rights reserved.
 // Use of this source code is governed by a MIT style
 // license that can be found in the LICENSE file.
 
@@ -6,16 +6,17 @@ package kafka
 
 import (
 	"context"
-	"errors"
 	"strings"
+	"time"
 
+	"github.com/pkg/errors"
 	"github.com/segmentio/kafka-go"
-
 	"github.com/wangtaoking1/app-base/kafka/auth"
 	"github.com/wangtaoking1/app-base/log"
 )
 
 type Message struct {
+	ID      int64
 	Key     string
 	Value   []byte
 	Headers []kafka.Header
@@ -32,6 +33,9 @@ type ProducerOptions struct {
 	// Default: raw.
 	AuthType auth.AuthType
 
+	// SASLOptions is the options for SASL authentication.
+	SASLOptions *SASLOptions
+
 	// Number of acknowledges from partition replicas required before receiving
 	// a response to a produce request.
 	// Default: RequireNone.
@@ -41,6 +45,18 @@ type ProducerOptions struct {
 	// Default: false.
 	Async bool
 
+	// Limit on how many messages will be buffered before being sent to a
+	// partition.
+	//
+	// The default is to use a target batch size of 100 messages.
+	BatchSize int
+
+	// Time limit on how often incomplete message batches will be flushed to
+	// kafka.
+	//
+	// The default is to flush at least every second.
+	BatchTimeout time.Duration
+
 	// Balancer is the balancer strategy used to distribute messages to partitions.
 	// Default: kafka.RoundRobin.
 	Balancer kafka.Balancer
@@ -48,6 +64,11 @@ type ProducerOptions struct {
 	// Compression is the compression algorithm used to compress messages.
 	// Default: kafka.Gzip.
 	Compression kafka.Compression
+}
+
+type SASLOptions struct {
+	Username string
+	Password string
 }
 
 func (o *ProducerOptions) SetDefaults() error {
@@ -89,7 +110,15 @@ func NewProducerWithOptions(brokers string, topic string, opts *ProducerOptions)
 		options: opts,
 	}
 
-	p.author = auth.NewRawAuthenticator()
+	switch opts.AuthType {
+	case auth.AuthTypeSASL:
+		if opts.SASLOptions == nil {
+			return nil, errors.New("SASL options must be specified for SASL authentication")
+		}
+		p.author = auth.NewSaslAuthenticator(opts.SASLOptions.Username, opts.SASLOptions.Password)
+	default:
+		p.author = auth.NewRawAuthenticator()
+	}
 	p.writer = &kafka.Writer{
 		Transport:    p.author.GetTransport(""),
 		Addr:         kafka.TCP(strings.Split(brokers, ",")...),
@@ -97,6 +126,8 @@ func NewProducerWithOptions(brokers string, topic string, opts *ProducerOptions)
 		Balancer:     opts.Balancer,
 		RequiredAcks: opts.RequireAcks,
 		Async:        opts.Async,
+		BatchSize:    opts.BatchSize,
+		BatchTimeout: opts.BatchTimeout,
 		Compression:  opts.Compression,
 	}
 
@@ -108,7 +139,7 @@ func (p *producer) Close() {
 		return
 	}
 	if err := p.writer.Close(); err != nil {
-		log.Error("Error close kafka producer", "error", err)
+		log.Errorw("Error close kafka producer", "error", err)
 	}
 }
 
