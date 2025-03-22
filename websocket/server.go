@@ -5,6 +5,7 @@
 package websocket
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -15,17 +16,19 @@ import (
 )
 
 type Server struct {
-	opts *Options
+	opts       *Options
+	dispatcher Dispatcher
 
 	httpServer *http.Server
-	dispatcher *Dispatcher
 	upgrader   websocket.Upgrader
 }
 
-func NewServer(dispatcher *Dispatcher, opts *Options) *Server {
+// NewServer creates a new websocket Server instance.
+func NewServer(dispatcher Dispatcher, opts *Options) *Server {
 	return &Server{
-		httpServer: &http.Server{Addr: fmt.Sprintf("%s:%d", opts.BindAddress, opts.BindPort)},
+		opts:       opts,
 		dispatcher: dispatcher,
+		httpServer: &http.Server{Addr: fmt.Sprintf("%s:%d", opts.BindAddress, opts.BindPort)},
 		upgrader: websocket.Upgrader{
 			ReadBufferSize:  opts.ReadBufferSize,
 			WriteBufferSize: opts.WriteBufferSize,
@@ -37,20 +40,26 @@ func NewServer(dispatcher *Dispatcher, opts *Options) *Server {
 	}
 }
 
-func (s *Server) HandleHealth(writer http.ResponseWriter, request *http.Request) {
+func (s *Server) handleHealthCheck(writer http.ResponseWriter, _ *http.Request) {
 	writer.WriteHeader(200)
 	writer.Write([]byte("")) //nolint
 }
 
-func (s *Server) Run() {
-	http.HandleFunc("/health_check", s.HandleHealth)
+func (s *Server) Run(ctx context.Context) {
+	http.HandleFunc("/health_check", s.handleHealthCheck)
 	http.HandleFunc("/ws", s.handleStream)
-	log.Infow("http server start", "address", s.httpServer.Addr)
-	defer log.Info("http server closed")
+	log.Infow("HTTP server start", "address", s.httpServer.Addr)
 	err := s.httpServer.ListenAndServe()
 	if err != nil && !errors.Is(err, http.ErrServerClosed) {
-		log.Errorf("http server error: %v", err)
+		log.Errorf("HTTP server error: %v", err)
 	}
+}
+
+func (s *Server) Shutdown(ctx context.Context) {
+	if err := s.httpServer.Shutdown(ctx); err != nil {
+		log.Errorf("HTTP server shutdown error: %v", err)
+	}
+	log.Infow("HTTP server shutdown")
 }
 
 func (s *Server) handleStream(writer http.ResponseWriter, request *http.Request) {
@@ -62,16 +71,12 @@ func (s *Server) handleStream(writer http.ResponseWriter, request *http.Request)
 	if len(ip) == 0 {
 		ip = request.RemoteAddr
 	}
-	log.Infow("request",
-		"client_id", id,
-		"url", request.URL.Path,
-		"real_ip", ip,
-	)
+	log.Infow("Request", "client_id", id, "url", request.URL.Path, "real_ip", ip)
 	conn, err := s.upgrader.Upgrade(writer, request, nil)
 	if err != nil {
-		log.Infof("stream request error: %v", err)
+		log.Infof("Upgrade stream request error: %v", err)
 		return
 	}
-	client := newClient(s.dispatcher, conn)
-	client.run(request.Context())
+	peer := newPeer(id, s.dispatcher, conn)
+	peer.Run(request.Context())
 }

@@ -4,9 +4,17 @@
 
 package websocket
 
-type Dispatcher struct {
+import "context"
+
+type Message struct {
+	Action string `json:"action"`
+	Data   []byte `json:"data"`
 }
 
-func NewDispatcher() *Dispatcher {
-	return &Dispatcher{}
+type Writer interface {
+	Write(ctx context.Context, message *Message) error
+}
+
+type Dispatcher interface {
+	Dispatch(ctx context.Context, writer Writer, message *Message)
 }
