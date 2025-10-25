@@ -12,11 +12,11 @@ import (
 
 // Options contains configuration options.
 type Options struct {
-	BindAddress     string `json:"bind-address" mapstructure:"bind-address"`
-	BindPort        int    `json:"bind-port"    mapstructure:"bind-port"`
-	ReadBufferSize  int    `json:"read-buffer-size" mapstructure:"read-buffer-size"`
+	BindAddress     string `json:"bind-address"      mapstructure:"bind-address"`
+	BindPort        int    `json:"bind-port"         mapstructure:"bind-port"`
+	ReadBufferSize  int    `json:"read-buffer-size"  mapstructure:"read-buffer-size"`
 	WriteBufferSize int    `json:"write-buffer-size" mapstructure:"write-buffer-size"`
-	Compression     bool   `json:"compression" mapstructure:"compression"`
+	Compression     bool   `json:"compression"       mapstructure:"compression"`
 }
 
 // NewOptions return a new options for server.
@@ -39,9 +39,24 @@ func (o *Options) Validate() []error {
 }
 
 func (o *Options) AddFlags(fs *pflag.FlagSet) {
-	fs.StringVar(&o.BindAddress, "websocket.bind-address", o.BindAddress, "The IP address on which to serve the websocket server")
+	fs.StringVar(
+		&o.BindAddress,
+		"websocket.bind-address",
+		o.BindAddress,
+		"The IP address on which to serve the websocket server",
+	)
 	fs.IntVar(&o.BindPort, "websocket.bind-port", o.BindPort, "The port on which to serve the websocket server")
-	fs.IntVar(&o.ReadBufferSize, "websocket.read-buffer-size", o.ReadBufferSize, "The byte size of websocket read buffer")
-	fs.IntVar(&o.WriteBufferSize, "websocket.write-buffer-size", o.WriteBufferSize, "The byte size of websocket write buffer")
+	fs.IntVar(
+		&o.ReadBufferSize,
+		"websocket.read-buffer-size",
+		o.ReadBufferSize,
+		"The byte size of websocket read buffer",
+	)
+	fs.IntVar(
+		&o.WriteBufferSize,
+		"websocket.write-buffer-size",
+		o.WriteBufferSize,
+		"The byte size of websocket write buffer",
+	)
 	fs.BoolVar(&o.Compression, "websocket.compression", o.Compression, "Enable compression for websocket message")
 }

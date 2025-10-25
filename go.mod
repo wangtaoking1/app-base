@@ -14,6 +14,7 @@ require (
 	github.com/moby/term v0.5.2
 	github.com/pkg/errors v0.9.1
 	github.com/redis/go-redis/v9 v9.5.3-0.20250317142726-b3709c650669
+	github.com/samber/lo v1.52.0
 	github.com/segmentio/kafka-go v0.4.47
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/pflag v1.0.6

@@ -5,6 +5,7 @@
 package utils
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -15,7 +16,7 @@ import (
 
 func TestLimitRetry(t *testing.T) {
 	result := 0
-	err := LimitRetry(3, 1*time.Millisecond, func() error {
+	err := LimitRetry(context.Background(), 3, 1*time.Millisecond, func() error {
 		result++
 		return nil
 	})
@@ -25,7 +26,7 @@ func TestLimitRetry(t *testing.T) {
 
 func TestLimitRetry_Error(t *testing.T) {
 	result := 0
-	err := LimitRetry(3, 1*time.Millisecond, func() error {
+	err := LimitRetry(context.Background(), 3, 1*time.Millisecond, func() error {
 		result++
 		return fmt.Errorf("err")
 	})
@@ -35,7 +36,7 @@ func TestLimitRetry_Error(t *testing.T) {
 
 func TestLimitRetry_NotRetryErr(t *testing.T) {
 	result := 0
-	err := LimitRetry(3, 1*time.Millisecond, func() error {
+	err := LimitRetry(context.Background(), 3, 1*time.Millisecond, func() error {
 		result++
 		return errors.Wrap(NotRetryErr, "err")
 	})
@@ -43,9 +44,24 @@ func TestLimitRetry_NotRetryErr(t *testing.T) {
 	assert.Equal(t, 1, result)
 }
 
+func TestLimitRetry_ContextCancel(t *testing.T) {
+	result := 0
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		time.Sleep(1 * time.Millisecond)
+		cancel()
+	}()
+	err := LimitRetry(ctx, 3, 1*time.Millisecond, func() error {
+		result++
+		return fmt.Errorf("err")
+	})
+	assert.Error(t, err)
+	assert.Equal(t, context.Canceled, err)
+}
+
 func TestLimitlessRetry(t *testing.T) {
 	result := 0
-	err := LimitlessRetry(1*time.Millisecond, func() error {
+	err := LimitlessRetry(context.Background(), 1*time.Millisecond, func() error {
 		result++
 		return nil
 	})
@@ -56,7 +72,7 @@ func TestLimitlessRetry(t *testing.T) {
 func TestLimitlessRetry_Error(t *testing.T) {
 	result := 0
 	limit := 3
-	err := LimitlessRetry(1*time.Millisecond, func() error {
+	err := LimitlessRetry(context.Background(), 1*time.Millisecond, func() error {
 		result++
 		if result < limit {
 			return fmt.Errorf("err")
@@ -69,7 +85,7 @@ func TestLimitlessRetry_Error(t *testing.T) {
 
 func TestLimitlessRetry_NotRetryErr(t *testing.T) {
 	result := 0
-	err := LimitlessRetry(1*time.Millisecond, func() error {
+	err := LimitlessRetry(context.Background(), 1*time.Millisecond, func() error {
 		result++
 		return NotRetryErr
 	})
@@ -80,7 +96,7 @@ func TestLimitlessRetry_NotRetryErr(t *testing.T) {
 func TestFastSlowRetry_Error(t *testing.T) {
 	result := 0
 	limit := 5
-	err := FastSlowRetry(3, 1*time.Millisecond, 1*time.Millisecond, func() error {
+	err := FastSlowRetry(context.Background(), 3, 1*time.Millisecond, 1*time.Millisecond, func() error {
 		result++
 		if result < limit {
 			return fmt.Errorf("err")

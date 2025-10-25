@@ -5,6 +5,7 @@
 package utils
 
 import (
+	"context"
 	"time"
 
 	"github.com/pkg/errors"
@@ -14,13 +15,13 @@ import (
 var NotRetryErr = errors.New("not retry error")
 
 // LimitRetry try exec a function with limit times.
-func LimitRetry(retryLimit int, interval time.Duration, f func() error) error {
+func LimitRetry(ctx context.Context, retryLimit int, interval time.Duration, f func() error) error {
 	var err error
 	err = f()
 	if err == nil {
 		return nil
 	}
-	if errors.Is(err, NotRetryErr) {
+	if errors.Is(err, NotRetryErr) || errors.Is(err, context.Canceled) {
 		return err
 	}
 	retryLimit -= 1
@@ -32,6 +33,8 @@ func LimitRetry(retryLimit int, interval time.Duration, f func() error) error {
 	defer t.Stop()
 	for {
 		select {
+		case <-ctx.Done():
+			return ctx.Err()
 		case <-t.C:
 			err = f()
 			if err == nil {
@@ -50,13 +53,14 @@ func LimitRetry(retryLimit int, interval time.Duration, f func() error) error {
 	}
 }
 
-func LimitlessRetry(interval time.Duration, f func() error) error {
+// LimitlessRetry try exec a function with limitless times.
+func LimitlessRetry(ctx context.Context, interval time.Duration, f func() error) error {
 	var err error
 	err = f()
 	if err == nil {
 		return nil
 	}
-	if errors.Is(err, NotRetryErr) {
+	if errors.Is(err, NotRetryErr) || errors.Is(err, context.Canceled) {
 		return err
 	}
 
@@ -64,6 +68,8 @@ func LimitlessRetry(interval time.Duration, f func() error) error {
 	defer t.Stop()
 	for {
 		select {
+		case <-ctx.Done():
+			return ctx.Err()
 		case <-t.C:
 			err = f()
 			if err == nil {
@@ -77,13 +83,15 @@ func LimitlessRetry(interval time.Duration, f func() error) error {
 	}
 }
 
-func FastSlowRetry(fastLimit int, fastInterval, slowInterval time.Duration, f func() error) error {
+// FastSlowRetry try exec a function with fastLimit times with fastInterval,
+// if not success, try with slowInterval.
+func FastSlowRetry(ctx context.Context, fastLimit int, fastInterval, slowInterval time.Duration, f func() error) error {
 	var err error
-	err = LimitRetry(fastLimit, fastInterval, f)
+	err = LimitRetry(ctx, fastLimit, fastInterval, f)
 	if err == nil {
 		return nil
 	}
-	if errors.Is(err, NotRetryErr) {
+	if errors.Is(err, NotRetryErr) || errors.Is(err, context.Canceled) {
 		return err
 	}
 
@@ -91,6 +99,8 @@ func FastSlowRetry(fastLimit int, fastInterval, slowInterval time.Duration, f fu
 	defer t.Stop()
 	for {
 		select {
+		case <-ctx.Done():
+			return ctx.Err()
 		case <-t.C:
 			err = f()
 			if err == nil {
