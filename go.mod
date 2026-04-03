@@ -1,9 +1,9 @@
 module github.com/wangtaoking1/app-base
 
-go 1.23.4
+go 1.24.13
 
 require (
-	github.com/buger/jsonparser v1.1.1
+	github.com/buger/jsonparser v1.1.2
 	github.com/fatih/color v1.18.0
 	github.com/gin-contrib/cors v1.7.4
 	github.com/gin-contrib/pprof v1.5.2
@@ -13,7 +13,7 @@ require (
 	github.com/gosuri/uitable v0.0.4
 	github.com/moby/term v0.5.2
 	github.com/pkg/errors v0.9.1
-	github.com/redis/go-redis/v9 v9.5.3-0.20250317142726-b3709c650669
+	github.com/redis/go-redis/v9 v9.18.0
 	github.com/samber/lo v1.52.0
 	github.com/segmentio/kafka-go v0.4.47
 	github.com/spf13/cobra v1.9.1
@@ -26,8 +26,8 @@ require (
 	go.etcd.io/etcd/client/v3 v3.5.19
 	go.uber.org/zap v1.27.0
 	golang.org/x/exp v0.0.0-20250305212735-054e65f0b394
-	golang.org/x/sync v0.12.0
-	google.golang.org/grpc v1.71.0
+	golang.org/x/sync v0.19.0
+	google.golang.org/grpc v1.80.0
 	gorm.io/driver/mysql v1.5.7
 	gorm.io/gorm v1.25.12
 )
@@ -85,14 +85,15 @@ require (
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.2.12 // indirect
 	go.etcd.io/etcd/client/pkg/v3 v3.5.19 // indirect
+	go.uber.org/atomic v1.11.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/arch v0.15.0 // indirect
-	golang.org/x/crypto v0.36.0 // indirect
-	golang.org/x/net v0.37.0 // indirect
-	golang.org/x/sys v0.31.0 // indirect
-	golang.org/x/text v0.23.0 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20250313205543-e70fdf4c4cb4 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20250313205543-e70fdf4c4cb4 // indirect
-	google.golang.org/protobuf v1.36.5 // indirect
+	golang.org/x/crypto v0.47.0 // indirect
+	golang.org/x/net v0.49.0 // indirect
+	golang.org/x/sys v0.40.0 // indirect
+	golang.org/x/text v0.33.0 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20260120221211-b8f7ae30c516 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260120221211-b8f7ae30c516 // indirect
+	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

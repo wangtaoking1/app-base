@@ -329,30 +329,48 @@ func TestExponentialBackoffRetry_IntervalCap(t *testing.T) {
 
 func TestExponentialBackoffRetryWithJitter(t *testing.T) {
 	result := 0
-	err := ExponentialBackoffRetryWithJitter(context.Background(), 3, 1*time.Millisecond, 10*time.Millisecond, func() error {
-		result++
-		return nil
-	})
+	err := ExponentialBackoffRetryWithJitter(
+		context.Background(),
+		3,
+		1*time.Millisecond,
+		10*time.Millisecond,
+		func() error {
+			result++
+			return nil
+		},
+	)
 	assert.NoError(t, err)
 	assert.Equal(t, 1, result)
 }
 
 func TestExponentialBackoffRetryWithJitter_ExhaustRetries(t *testing.T) {
 	result := 0
-	err := ExponentialBackoffRetryWithJitter(context.Background(), 3, 1*time.Millisecond, 10*time.Millisecond, func() error {
-		result++
-		return fmt.Errorf("err")
-	})
+	err := ExponentialBackoffRetryWithJitter(
+		context.Background(),
+		3,
+		1*time.Millisecond,
+		10*time.Millisecond,
+		func() error {
+			result++
+			return fmt.Errorf("err")
+		},
+	)
 	assert.Error(t, err)
 	assert.Equal(t, 3, result)
 }
 
 func TestExponentialBackoffRetryWithJitter_NotRetryErr(t *testing.T) {
 	result := 0
-	err := ExponentialBackoffRetryWithJitter(context.Background(), 5, 1*time.Millisecond, 10*time.Millisecond, func() error {
-		result++
-		return errors.Wrap(NotRetryErr, "err")
-	})
+	err := ExponentialBackoffRetryWithJitter(
+		context.Background(),
+		5,
+		1*time.Millisecond,
+		10*time.Millisecond,
+		func() error {
+			result++
+			return errors.Wrap(NotRetryErr, "err")
+		},
+	)
 	assert.Error(t, err)
 	assert.Equal(t, 1, result)
 }

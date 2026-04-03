@@ -55,7 +55,12 @@ func LimitRetry(ctx context.Context, retryLimit int, interval time.Duration, f f
 }
 
 // LimitRandomRetry try exec a function with limit times and random interval in [minInterval, maxInterval).
-func LimitRandomRetry(ctx context.Context, retryLimit int, minInterval, maxInterval time.Duration, f func() error) error {
+func LimitRandomRetry(
+	ctx context.Context,
+	retryLimit int,
+	minInterval, maxInterval time.Duration,
+	f func() error,
+) error {
 	if maxInterval <= minInterval {
 		return errors.New("invalid interval")
 	}
@@ -104,7 +109,12 @@ func LimitlessRandomRetry(ctx context.Context, minInterval, maxInterval time.Dur
 
 // ExponentialBackoffRetry try exec a function with limit times and exponential backoff interval.
 // The interval doubles each retry, capped at maxInterval.
-func ExponentialBackoffRetry(ctx context.Context, retryLimit int, initialInterval, maxInterval time.Duration, f func() error) error {
+func ExponentialBackoffRetry(
+	ctx context.Context,
+	retryLimit int,
+	initialInterval, maxInterval time.Duration,
+	f func() error,
+) error {
 	var err error
 	err = f()
 	if err == nil {
@@ -145,7 +155,12 @@ func ExponentialBackoffRetry(ctx context.Context, retryLimit int, initialInterva
 
 // ExponentialBackoffRetryWithJitter try exec a function with limit times, exponential backoff interval and full jitter.
 // The actual interval is a random value in [0, current exponential interval).
-func ExponentialBackoffRetryWithJitter(ctx context.Context, retryLimit int, initialInterval, maxInterval time.Duration, f func() error) error {
+func ExponentialBackoffRetryWithJitter(
+	ctx context.Context,
+	retryLimit int,
+	initialInterval, maxInterval time.Duration,
+	f func() error,
+) error {
 	var err error
 	err = f()
 	if err == nil {

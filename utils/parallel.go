@@ -11,9 +11,13 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-// ParallelList 并行获取函数
-// 并发执行查询，最后将查询结果汇总返回
-func ParallelList[K, V any](ctx context.Context, paralLimit int, keys []K, fn func(ctx context.Context, key K) (V, error)) ([]V, error) {
+// ParallelList executes queries concurrently and aggregates the results.
+func ParallelList[K, V any](
+	ctx context.Context,
+	paralLimit int,
+	keys []K,
+	fn func(ctx context.Context, key K) (V, error),
+) ([]V, error) {
 	var eg errgroup.Group
 	if paralLimit > 0 {
 		eg.SetLimit(paralLimit)
@@ -36,9 +40,13 @@ func ParallelList[K, V any](ctx context.Context, paralLimit int, keys []K, fn fu
 	return results, nil
 }
 
-// ParallelBatchList 并行获取函数
-// 将任务分成若干个 chunks，然后并发执行查询，最后将查询结果汇总返回
-func ParallelBatchList[K, V any](ctx context.Context, paralLimit, batchSize int, keys []K, fn func(ctx context.Context, keys []K) ([]V, error)) ([]V, error) {
+// ParallelBatchList splits keys into chunks, executes queries concurrently, and aggregates the results.
+func ParallelBatchList[K, V any](
+	ctx context.Context,
+	paralLimit, batchSize int,
+	keys []K,
+	fn func(ctx context.Context, keys []K) ([]V, error),
+) ([]V, error) {
 	var eg errgroup.Group
 	if paralLimit > 0 {
 		eg.SetLimit(paralLimit)
@@ -62,9 +70,13 @@ func ParallelBatchList[K, V any](ctx context.Context, paralLimit, batchSize int,
 	return lo.Flatten(resultSlice), nil
 }
 
-// ParallelDo 并行执行函数
-// 并发执行，返回是否报错
-func ParallelDo[T any](ctx context.Context, paralLimit int, items []T, fn func(ctx context.Context, item T) error) error {
+// ParallelDo executes fn for each item concurrently and returns the first error encountered.
+func ParallelDo[T any](
+	ctx context.Context,
+	paralLimit int,
+	items []T,
+	fn func(ctx context.Context, item T) error,
+) error {
 	var eg errgroup.Group
 	if paralLimit > 0 {
 		eg.SetLimit(paralLimit)
@@ -78,9 +90,14 @@ func ParallelDo[T any](ctx context.Context, paralLimit int, items []T, fn func(c
 	return eg.Wait()
 }
 
-// ParallelBatchDo 并行执行函数
-// 将任务分成若干个 chunks，然后并发执行，返回是否报错
-func ParallelBatchDo[T any](ctx context.Context, paralLimit, batchSize int, items []T, fn func(ctx context.Context, items []T) error) error {
+// ParallelBatchDo splits items into chunks, executes fn for each chunk concurrently, and returns the first error
+// encountered.
+func ParallelBatchDo[T any](
+	ctx context.Context,
+	paralLimit, batchSize int,
+	items []T,
+	fn func(ctx context.Context, items []T) error,
+) error {
 	var eg errgroup.Group
 	if paralLimit > 0 {
 		eg.SetLimit(paralLimit)
@@ -95,8 +112,7 @@ func ParallelBatchDo[T any](ctx context.Context, paralLimit, batchSize int, item
 	return eg.Wait()
 }
 
-// ParalExec 并行执行所有任务函数
-// 并发执行，返回是否报错
+// ParalExec executes all given functions concurrently and returns the first error encountered.
 func ParalExec[T any](ctx context.Context, fns ...func(ctx context.Context) error) error {
 	var eg errgroup.Group
 
@@ -112,9 +128,13 @@ func ParalExec[T any](ctx context.Context, fns ...func(ctx context.Context) erro
 	return eg.Wait()
 }
 
-// ParallelByFirst 并行执行多个方法，返回第一个成功的结果
-// 如果都失败，则返回最后一个错误
-func ParallelByFirst[K, V any](ctx context.Context, key K, fns ...func(ctx context.Context, key K) (V, error)) (V, error) {
+// ParallelByFirst executes multiple functions concurrently and returns the first successful result.
+// If all functions fail, the last error is returned.
+func ParallelByFirst[K, V any](
+	ctx context.Context,
+	key K,
+	fns ...func(ctx context.Context, key K) (V, error),
+) (V, error) {
 	var empty V
 	if len(fns) == 0 {
 		return empty, nil
