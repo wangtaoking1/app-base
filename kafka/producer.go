@@ -20,6 +20,7 @@ type Message struct {
 	Key     string
 	Value   []byte
 	Headers []kafka.Header
+	Time    time.Time
 }
 
 type Producer interface {
@@ -50,6 +51,12 @@ type ProducerOptions struct {
 	//
 	// The default is to use a target batch size of 100 messages.
 	BatchSize int
+
+	// Limit the maximum size of a request in bytes before being sent to
+	// a partition.
+	//
+	// The default is to use a kafka default value of 1048576.
+	BatchBytes int64
 
 	// Time limit on how often incomplete message batches will be flushed to
 	// kafka.
@@ -127,6 +134,7 @@ func NewProducerWithOptions(brokers string, topic string, opts *ProducerOptions)
 		RequiredAcks: opts.RequireAcks,
 		Async:        opts.Async,
 		BatchSize:    opts.BatchSize,
+		BatchBytes:   opts.BatchBytes,
 		BatchTimeout: opts.BatchTimeout,
 		Compression:  opts.Compression,
 	}

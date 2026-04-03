@@ -6,6 +6,7 @@ package kafka
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"time"
 
@@ -84,10 +85,13 @@ func (m *offsetManager) doCommit(ctx context.Context) {
 }
 
 func (m *offsetManager) commitOffset(ctx context.Context, messages []kafka.Message) error {
-	err := utils.LimitRetry(defaultRetryLimit, defaultRetryInterval, func() error {
+	err := utils.LimitRetry(ctx, defaultRetryLimit, defaultRetryInterval, func() error {
 		return m.reader.CommitMessages(ctx, messages...)
 	})
 	if err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return nil
+		}
 		log.Errorw("Error commit offset to kafka", "error", err)
 		return err
 	}

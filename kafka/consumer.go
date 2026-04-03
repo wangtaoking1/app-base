@@ -77,6 +77,21 @@ type ConsumerOptions struct {
 	// Default: kafka.LastOffset
 	StartOffset int64
 
+	// SessionTimeout optionally sets the length of time that may pass without a heartbeat
+	// before the coordinator considers the consumer dead and initiates a rebalance.
+	//
+	// Default: 10s
+	//
+	// Only used when GroupID is set
+	SessionTimeout time.Duration
+	// HeartbeatInterval sets the optional frequency at which the reader sends the consumer
+	// group heartbeat update.
+	//
+	// Default: 3s
+	//
+	// Only used when GroupID is set
+	HeartbeatInterval time.Duration
+
 	// AutoCommit enabled the auto commit of offset. If true, auto commit offset after message handled, else you
 	// should call CommitMessages manually.
 	// Default: true
@@ -119,6 +134,12 @@ func (o *ConsumerOptions) SetDefaults() error {
 	}
 	if o.CommitInterval == 0 {
 		o.CommitInterval = 2 * time.Second
+	}
+	if o.SessionTimeout == 0 {
+		o.SessionTimeout = 10 * time.Second
+	}
+	if o.HeartbeatInterval == 0 {
+		o.HeartbeatInterval = 3 * time.Second
 	}
 	return nil
 }
@@ -172,14 +193,16 @@ func NewConsumerWithOptions(
 	}
 
 	c.reader = kafka.NewReader(kafka.ReaderConfig{
-		Dialer:      c.author.GetDialer(opts.AssumeRole),
-		Brokers:     strings.Split(brokers, ","),
-		Topic:       topic,
-		GroupID:     groupID,
-		MinBytes:    c.options.FetchMinBytes,
-		MaxBytes:    c.options.FetchMaxBytes,
-		MaxWait:     c.options.FetchMaxWait,
-		StartOffset: c.options.StartOffset,
+		Dialer:            c.author.GetDialer(opts.AssumeRole),
+		Brokers:           strings.Split(brokers, ","),
+		Topic:             topic,
+		GroupID:           groupID,
+		MinBytes:          c.options.FetchMinBytes,
+		MaxBytes:          c.options.FetchMaxBytes,
+		MaxWait:           c.options.FetchMaxWait,
+		StartOffset:       c.options.StartOffset,
+		SessionTimeout:    c.options.SessionTimeout,
+		HeartbeatInterval: c.options.HeartbeatInterval,
 	})
 	if opts.OrderedMode {
 		c.consumeQueue = newOrderedQueue(opts.CacheSize, opts.ParalSize, c.handleMessage)
@@ -227,9 +250,17 @@ func (c *consumer) close() {
 }
 
 func (c *consumer) consume(ctx context.Context) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Errorw("Panic", "error", r)
+		}
+	}()
 	for c.running.Load() {
 		msg, err := c.reader.FetchMessage(ctx)
 		if err != nil {
+			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+				continue
+			}
 			if c.running.Load() {
 				log.Errorw("Error fetch kafka message", "topic", c.topic, "error", err)
 				time.Sleep(errorRetryInterval)
@@ -257,9 +288,10 @@ func (c *consumer) handleMessage(ctx context.Context, msgID int64, m *kafka.Mess
 		Key:     string(m.Key),
 		Value:   m.Value,
 		Headers: m.Headers,
+		Time:    m.Time,
 	}
 
-	err := c.msgRetryer.Execute(func() error {
+	err := c.msgRetryer.Execute(ctx, func() error {
 		return c.handler(ctx, msg)
 	})
 	if err != nil {
